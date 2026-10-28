@@ -3,7 +3,9 @@ import '../models/product.dart';
 import '../utils/format.dart';
 import 'product_image.dart';
 
-// Thẻ món trong lưới menu
+// Thẻ món trong lưới menu: ảnh vuông tràn mép trên, tên + mô tả + giá ở dưới.
+// Chiều cao thẻ do màn Menu tính: ảnh vuông + 116px phần chữ (nhân cỡ chữ của máy).
+// Đổi lề / cỡ chữ phần dưới thì phải sửa số 116 ở menu_screen.dart.
 class ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
@@ -12,39 +14,65 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Card(
-      clipBehavior: Clip.antiAlias, // bo góc cả ảnh bên trong
       child: InkWell(
         onTap: onTap,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: ProductImage(product: product),
-              ),
+            // Card đã cắt bo góc 12 -> ảnh tràn mép trên
+            AspectRatio(
+              aspectRatio: 1,
+              child: ProductImage(product: product),
             ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatVnd(product.price),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleSmall,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      product.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.bodySmall
+                          ?.copyWith(color: colors.onSurfaceVariant),
+                    ),
+                    const Spacer(), // giá luôn nằm đáy thẻ -> các thẻ thẳng hàng
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            formatVnd(product.price),
+                            style: textTheme.titleMedium?.copyWith(
+                              color: colors.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        // Chỉ để trang trí: bấm cả thẻ mới mở chi tiết món
+                        ExcludeSemantics(
+                          child: CircleAvatar(
+                            radius: 16,
+                            backgroundColor: colors.primary,
+                            foregroundColor: colors.onPrimary,
+                            child: const Icon(Icons.add, size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

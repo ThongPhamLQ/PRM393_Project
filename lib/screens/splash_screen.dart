@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/notification_service.dart';
 import '../utils/constants.dart';
+import '../widgets/brand_block.dart';
 
 // Màn hình chờ: kiểm tra phiên đăng nhập (Module 10 - Demo 10.3 Auto Login)
 // Splash -> (còn phiên?) -> Home / Admin / Login
@@ -40,20 +41,51 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.local_cafe, size: 100, color: colors.primary),
-            const SizedBox(height: 16),
-            const Text(
-              shopName,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      // AppBar cao 0 = dải màu dưới thanh trạng thái; AppBar tự chọn icon trạng
+      // thái màu sáng vì nền đậm
+      appBar: AppBar(
+        toolbarHeight: 0,
+        backgroundColor: colors.onPrimaryFixedVariant,
+      ),
+      // Cả màn là khối nâu đậm của thương hiệu
+      body: BrandBlock(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                ExcludeSemantics(
+                  child: CircleAvatar(
+                    radius: 64,
+                    backgroundColor: colors.primaryFixed,
+                    foregroundColor: colors.onPrimaryFixedVariant,
+                    child: const Icon(Icons.local_cafe, size: 72),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  shopName.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  // textTheme lấy từ context ngoài khối -> tự đặt màu chữ sáng
+                  style: textTheme.headlineSmall?.copyWith(
+                    color: colors.primaryFixed,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Cà phê & trà sữa mỗi ngày',
+                  textAlign: TextAlign.center,
+                  style:
+                      textTheme.bodyLarge?.copyWith(color: colors.primaryFixedDim),
+                ),
+                const SizedBox(height: 32),
+                const CircularProgressIndicator(),
+              ],
             ),
-            const SizedBox(height: 24),
-            const CircularProgressIndicator(),
-          ],
+          ),
         ),
       ),
     );

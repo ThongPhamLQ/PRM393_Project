@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../utils/format.dart';
 import '../../widgets/empty_view.dart';
+import '../../widgets/max_width_box.dart';
 import '../shared/chat_screen.dart';
 
 // Chủ quán: danh sách khách đã nhắn tin
@@ -28,6 +29,7 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
   @override
   Widget build(BuildContext context) {
     final conversations = context.watch<ChatProvider>().conversations;
+    final colors = Theme.of(context).colorScheme;
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -41,40 +43,51 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
                 ),
               ],
             )
-          : ListView.separated(
-              itemCount: conversations.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final c = conversations[index];
-                return ListTile(
-                  leading: CircleAvatar(
-                    child: Text(c.customerName[0].toUpperCase()),
-                  ),
-                  title: Text(c.customerName),
-                  subtitle: Text(
-                    c.lastMessage,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: Text(
-                    formatDateTime(c.lastTime),
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatScreen(
-                          customerId: c.customerId,
-                          title: c.customerName,
-                          isShop: true,
-                        ),
+          : MaxWidthBox(
+              maxWidth: 800,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: conversations.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final c = conversations[index];
+                  return Card(
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: colors.primaryContainer,
+                        foregroundColor: colors.onPrimaryContainer,
+                        child: Text(c.customerName[0].toUpperCase()),
                       ),
-                    );
-                    _load(); // quay lại thì tải lại tin nhắn mới nhất
-                  },
-                );
-              },
+                      title: Text(c.customerName),
+                      subtitle: Text(
+                        c.lastMessage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: Text(
+                        formatDateTime(c.lastTime),
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(color: colors.onSurfaceVariant),
+                      ),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              customerId: c.customerId,
+                              title: c.customerName,
+                              isShop: true,
+                            ),
+                          ),
+                        );
+                        _load(); // quay lại thì tải lại tin nhắn mới nhất
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
     );
   }
