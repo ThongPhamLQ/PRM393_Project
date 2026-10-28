@@ -7,10 +7,14 @@ theo dõi trạng thái đơn, xem bản đồ quán và chat với quán. Chủ
 
 ```bash
 flutter pub get
-flutter run                 # chạy debug trên máy ảo / điện thoại Android
-flutter test                # chạy unit test + widget test
-flutter build apk --release # build APK release -> build/app/outputs/flutter-apk/app-release.apk
+flutter run --dart-define-from-file=.env                 # chạy debug trên máy ảo / điện thoại Android
+flutter test                                             # chạy unit test + widget test
+flutter build apk --release --dart-define-from-file=.env # build APK release -> build/app/outputs/flutter-apk/app-release.apk
 ```
+
+Bản đồ màn Cửa hàng dùng Goong nên cần key: copy `.env.example` thành `.env`, dán Maptiles key (lấy ở
+account.goong.io) vào `GOONG_MAPTILES_KEY=`. File `.env` không commit. Chạy bằng Android Studio thì thêm
+`--dart-define-from-file=.env` vào ô *Additional run args* của cấu hình chạy. Thiếu key thì app vẫn chạy, ô bản đồ báo thiếu key.
 
 Tài khoản có sẵn (trên màn Đăng nhập có nút điền nhanh):
 
@@ -25,7 +29,7 @@ Tài khoản có sẵn (trên màn Đăng nhập có nút điền nhanh):
 ### Chạy trên Chrome (web)
 
 ```bash
-flutter run -d chrome                  # cách nhanh nhất: tự build và mở Chrome
+flutter run -d chrome --dart-define-from-file=.env   # cách nhanh nhất: tự build và mở Chrome
 flutter build web --release            # hoặc build bản release -> build/web
 dart pub global activate dhttpd        # (1 lần) cài web server nhỏ
 dhttpd --path build/web --port 8080    # rồi mở http://localhost:8080
@@ -50,13 +54,13 @@ dhttpd --path build/web --port 8080    # rồi mở http://localhost:8080
 | # | Chức năng | Màn hình | Ghi chú |
 |---|-----------|----------|---------|
 | 1 | Đăng nhập / Đăng ký | `auth/login_screen`, `auth/register_screen` | Form validation, tự đăng nhập lại khi mở app (Splash) |
-| 2 | Menu theo danh mục | `customer/menu_screen` | Lọc danh mục (ChoiceChip), tìm kiếm, lưới responsive 2/4 cột |
+| 2 | Menu theo danh mục | `customer/menu_screen` | Lời chào, tìm kiếm, banner, lọc danh mục (ChoiceChip có icon), lưới ảnh món tự tính số cột theo bề rộng |
 | 3 | Chi tiết món | `customer/product_detail_screen` | Chọn size (Radio), topping (Checkbox), ghi chú, số lượng |
 | 4 | Giỏ hàng | `customer/cart_screen` | Tăng/giảm, vuốt để xóa, gộp món trùng |
 | 5 | Đặt hàng + thanh toán giả lập | `customer/checkout_screen`, `widgets/fake_payment_dialog` | Tiền mặt / MoMo / Thẻ (giả lập 2 giây) |
 | 6 | Lịch sử đơn hàng | `customer/order_history_screen`, `shared/order_detail_screen` | Xem các bước trạng thái, hủy đơn khi còn "Chờ xác nhận" |
 | 7 | Thông báo trạng thái đơn | `customer/notifications_screen` | Thông báo hệ thống (local notification) + lưu lịch sử, badge số chưa đọc |
-| 8 | Bản đồ vị trí quán | `customer/store_screen` | flutter_map + OpenStreetMap, nút chỉ đường Google Maps, gọi điện |
+| 8 | Bản đồ vị trí quán | `customer/store_screen` | Bản đồ Goong (maplibre_gl), nút chỉ đường Google Maps, gọi điện |
 | 9 | Chat với quán | `shared/chat_screen` | Khách nhắn, chủ quán trả lời |
 | 10 | Trang quản lý đơn (chủ quán) | `admin/admin_orders_screen` | Lọc theo trạng thái, chuyển trạng thái → khách nhận thông báo |
 | + | Chế độ tối | `customer/profile_screen` | Lưu bằng SharedPreferences |
@@ -127,17 +131,20 @@ test/
 
 - `order_items` lưu **tên + giá tại thời điểm đặt** → quán đổi giá menu thì lịch sử đơn vẫn đúng.
 - Giá size cố định trong code (`utils/constants.dart`): S +0đ, M +6.000đ, L +10.000đ.
-- Muốn có ảnh món: điền link ảnh vào cột `imageUrl` trong `database_helper.dart` (để trống thì app hiện icon).
-  Sửa dữ liệu mẫu xong phải **gỡ app cài lại** vì `onCreate` chỉ chạy 1 lần.
+- Ảnh món nằm ở `assets/images/products/` (khai báo trong `pubspec.yaml`), cột `imageUrl` lưu đường dẫn
+  `assets/...` (hoặc link `http...`); thiếu file / lỗi tải thì app hiện icon theo danh mục.
+- Database đang ở **version 2**: máy đã cài bản 1 (kể cả IndexedDB trên Chrome) tự chạy `onUpgrade`, chỉ điền
+  `products.imageUrl`, không đụng tài khoản / đơn hàng / tin nhắn / thông báo → không cần gỡ app.
+  Sửa dữ liệu mẫu khác thì vẫn phải gỡ app cài lại vì `onCreate` chỉ chạy 1 lần.
 
 ## 6. Kiến thức trong slide đã áp dụng
 
 | Module | Áp dụng ở đâu |
 |--------|---------------|
 | M2-M3 Dart, OOP, async | Model + `factory fromMap`, enum `OrderStatus`, `Future`/`async`/`await`, Singleton `DatabaseHelper`, Repository pattern |
-| M4 UI Widgets | Scaffold, Card, ListTile, GridView, BottomNavigationBar, RadioListTile, CheckboxListTile, SwitchListTile, Badge, Theme + Dark mode |
+| M4 UI Widgets | Scaffold, Card, ListTile, CustomScrollView + SliverGrid, NavigationBar / NavigationRail, RadioListTile, CheckboxListTile, SwitchListTile, Badge, ThemeData (component theme gom ở `main.dart`) + Dark mode |
 | M5 Navigation & State | Named routes, `push` / `pushReplacementNamed` / `pushNamedAndRemoveUntil`, Provider (`context.watch` / `read` / `select`, `Selector`) |
-| M6 Responsive | `MediaQuery` (lưới 2/4 cột), `LayoutBuilder` (màn Cửa hàng), `SafeArea`, `Expanded`, `Wrap` |
+| M6 Responsive | `LayoutBuilder`: mốc 600/1024px chọn NavigationBar / NavigationRail / Rail mở rộng (`widgets/adaptive_shell.dart`), số cột lưới Menu theo bề rộng (thẻ ≤ 280px), màn Cửa hàng; `MediaQuery` (cỡ chữ, mật độ điểm ảnh); nội dung rộng tối đa 1200px (`MaxWidthBox`), `SafeArea`, `Expanded`, `Wrap` |
 | M7 Forms | `Form` + `GlobalKey<FormState>`, validator, xác nhận mật khẩu, `AutovalidateMode.onUserInteraction`, ẩn/hiện mật khẩu, ẩn bàn phím |
 | M8 JSON / Service layer | `toMap()` / `fromMap()`, `FutureBuilder` (chi tiết đơn), xử lý loading / rỗng / lỗi |
 | M9 Local storage | SQLite (sqflite) CRUD + transaction + JOIN/GROUP BY, SharedPreferences (phiên đăng nhập, dark mode), `Dismissible` |
@@ -149,7 +156,7 @@ test/
 
 | Thư viện / kỹ thuật | Dùng để | Lý do chọn |
 |---------------------|---------|------------|
-| `flutter_map` + `latlong2` | Hiển thị bản đồ OpenStreetMap + ghim vị trí quán | Miễn phí, không cần API key / thẻ thanh toán như Google Maps. Ảnh bản đồ lấy từ `tile.openstreetmap.de` vì `openstreetmap.org` bị chặn DNS trên mạng lúc phát triển (nếu bản đồ trống, đổi `urlTemplate` trong `store_screen.dart`) |
+| `maplibre_gl` + Goong Maptiles | Hiển thị bản đồ Goong (bản đồ vector của Việt Nam) + ghim vị trí quán | Dữ liệu địa chỉ Việt Nam chi tiết; key đọc từ `.env` qua `--dart-define-from-file`, không nằm trong code |
 | `url_launcher` | Mở Google Maps chỉ đường, mở trình gọi điện | Gọi app khác của điện thoại bằng URL |
 | `RadioGroup` | Quản lý nhóm Radio (size, phương thức thanh toán) | Flutter 3.32+ bỏ `groupValue`/`onChanged` trên từng Radio |
 | Enum có thuộc tính (enhanced enum) | `OrderStatus('Chờ xác nhận', ...)`, `PaymentMethod` | Gom nhãn + mô tả vào 1 chỗ, có getter `next` |

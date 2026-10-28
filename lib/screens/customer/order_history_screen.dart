@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../widgets/empty_view.dart';
+import '../../widgets/max_width_box.dart';
 import '../../widgets/order_card.dart';
 import '../shared/order_detail_screen.dart';
 
@@ -50,9 +51,10 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         ],
       );
     } else {
-      body = ListView.builder(
-        padding: const EdgeInsets.all(12),
+      body = ListView.separated(
+        padding: const EdgeInsets.all(16),
         itemCount: orders.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final order = orders[index];
           return OrderCard(
@@ -72,22 +74,9 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Đơn hàng của tôi')),
       // Kéo xuống để tải lại (xem trạng thái mới nhất)
-      body: Column(
-        children: [
-          if (orderProvider.loadError != null)
-            MaterialBanner(
-              content: Text(orderProvider.loadError!),
-              actions: [
-                TextButton(
-                  onPressed: _loadOrders,
-                  child: const Text('Thử lại'),
-                ),
-              ],
-            ),
-          Expanded(
-            child: RefreshIndicator(onRefresh: _loadOrders, child: body),
-          ),
-        ],
+      body: RefreshIndicator(
+        onRefresh: _loadOrders,
+        child: MaxWidthBox(maxWidth: 800, child: body),
       ),
     );
   }

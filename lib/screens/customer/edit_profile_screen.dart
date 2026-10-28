@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../utils/validators.dart';
+import '../../widgets/max_width_box.dart';
+import '../../widgets/section_card.dart';
 
 // Chỉnh sửa thông tin cá nhân: họ tên, số điện thoại, (tùy chọn) đổi mật khẩu
 class EditProfileScreen extends StatefulWidget {
@@ -59,17 +61,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isLoading = false);
 
     if (error != null) {
+      final colors = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(error, style: TextStyle(color: colors.onError)),
+          backgroundColor: colors.error,
+        ),
       );
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã lưu thông tin'),
-        backgroundColor: Colors.green,
-      ),
+      const SnackBar(content: Text('Đã lưu thông tin')),
     );
     Navigator.pop(context);
   }
@@ -79,8 +82,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon),
-      border: const OutlineInputBorder(),
       suffixIcon: IconButton(
+        tooltip: _obscurePassword ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
         icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
       ),
@@ -97,114 +100,131 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Form(
           key: _formKey,
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              // Email dùng để đăng nhập nên chỉ cho xem, không cho sửa
-              TextFormField(
-                initialValue: _email,
-                enabled: false,
-                decoration: const InputDecoration(
-                  labelText: 'Email (không thể đổi)',
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nameController,
-                textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Họ tên',
-                  prefixIcon: Icon(Icons.person),
-                  border: OutlineInputBorder(),
-                ),
-                validator: validateName,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Số điện thoại',
-                  prefixIcon: Icon(Icons.phone),
-                  border: OutlineInputBorder(),
-                ),
-                validator: validatePhone,
-              ),
-              const SizedBox(height: 8),
-
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                secondary: const Icon(Icons.lock_reset),
-                title: const Text('Đổi mật khẩu'),
-                value: _changePassword,
-                onChanged: (value) => setState(() => _changePassword = value),
-              ),
-
-              // Chỉ hiện khi bật Switch "Đổi mật khẩu"
-              if (_changePassword) ...[
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _currentPasswordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.next,
-                  decoration: _passwordDecoration(
-                    'Mật khẩu hiện tại',
-                    Icons.lock_outline,
+          child: MaxWidthBox(
+            maxWidth: 560,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                SectionCard(
+                  title: 'Thông tin cá nhân',
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Column(
+                      children: [
+                        // Email dùng để đăng nhập nên chỉ cho xem, không cho sửa
+                        TextFormField(
+                          initialValue: _email,
+                          enabled: false,
+                          decoration: const InputDecoration(
+                            labelText: 'Email (không thể đổi)',
+                            prefixIcon: Icon(Icons.email_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _nameController,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Họ tên',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          validator: validateName,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            labelText: 'Số điện thoại',
+                            prefixIcon: Icon(Icons.phone_outlined),
+                          ),
+                          validator: validatePhone,
+                        ),
+                      ],
+                    ),
                   ),
-                  validator: (value) => (value == null || value.isEmpty)
-                      ? 'Vui lòng nhập mật khẩu hiện tại'
-                      : null,
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _newPasswordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.next,
-                  decoration: _passwordDecoration('Mật khẩu mới', Icons.lock),
-                  validator: (value) {
-                    final error = validatePassword(value);
-                    if (error != null) return error;
-                    if (value == _currentPasswordController.text) {
-                      return 'Mật khẩu mới phải khác mật khẩu hiện tại';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _confirmController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  decoration: _passwordDecoration(
-                    'Nhập lại mật khẩu mới',
-                    Icons.lock,
+                const SizedBox(height: 12),
+
+                SectionCard(
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        secondary: const Icon(Icons.lock_reset),
+                        title: const Text('Đổi mật khẩu'),
+                        value: _changePassword,
+                        onChanged: (value) =>
+                            setState(() => _changePassword = value),
+                      ),
+
+                      // Chỉ hiện khi bật Switch "Đổi mật khẩu"
+                      if (_changePassword)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                controller: _currentPasswordController,
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.next,
+                                decoration: _passwordDecoration(
+                                    'Mật khẩu hiện tại', Icons.lock_outline),
+                                validator: (value) =>
+                                    (value == null || value.isEmpty)
+                                        ? 'Vui lòng nhập mật khẩu hiện tại'
+                                        : null,
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _newPasswordController,
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.next,
+                                decoration: _passwordDecoration(
+                                    'Mật khẩu mới', Icons.lock),
+                                validator: (value) {
+                                  final error = validatePassword(value);
+                                  if (error != null) return error;
+                                  if (value == _currentPasswordController.text) {
+                                    return 'Mật khẩu mới phải khác mật khẩu hiện tại';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _confirmController,
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.done,
+                                decoration: _passwordDecoration(
+                                    'Nhập lại mật khẩu mới', Icons.lock),
+                                validator: (value) =>
+                                    value != _newPasswordController.text
+                                        ? 'Mật khẩu nhập lại không khớp'
+                                        : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
-                  validator: (value) => value != _newPasswordController.text
-                      ? 'Mật khẩu nhập lại không khớp'
-                      : null,
+                ),
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: _isLoading ? null : _save,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          )
+                        : const Text('Lưu thay đổi'),
+                  ),
                 ),
               ],
-              const SizedBox(height: 24),
-
-              SizedBox(
-                height: 50,
-                child: FilledButton(
-                  onPressed: _isLoading ? null : _save,
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        )
-                      : const Text(
-                          'Lưu thay đổi',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

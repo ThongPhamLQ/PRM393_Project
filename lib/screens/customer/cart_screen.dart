@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/cart_provider.dart';
-import '../../utils/format.dart';
 import '../../widgets/cart_item_tile.dart';
 import '../../widgets/empty_view.dart';
+import '../../widgets/max_width_box.dart';
+import '../../widgets/total_bar.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
@@ -35,6 +36,7 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -53,66 +55,44 @@ class CartScreen extends StatelessWidget {
               icon: Icons.shopping_cart_outlined,
               message: 'Giỏ hàng trống.\nHãy chọn món bạn thích nhé!',
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: cart.items.length,
-              itemBuilder: (context, index) {
-                final item = cart.items[index];
-                // Vuốt sang trái để xóa món
-                return Dismissible(
-                  key: ValueKey(item.key),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    color: Colors.red,
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  onDismissed: (_) => cart.removeItem(item),
-                  child: CartItemTile(item: item),
-                );
-              },
+          : MaxWidthBox(
+              maxWidth: 720,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: cart.items.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final item = cart.items[index];
+                  // Vuốt sang trái để xóa món
+                  return Dismissible(
+                    key: ValueKey(item.key),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 24),
+                      decoration: BoxDecoration(
+                        color: colors.errorContainer,
+                        borderRadius: BorderRadius.circular(12), // = thẻ món
+                      ),
+                      child: Icon(Icons.delete, color: colors.onErrorContainer),
+                    ),
+                    onDismissed: (_) => cart.removeItem(item),
+                    child: CartItemTile(item: item),
+                  );
+                },
+              ),
             ),
       bottomNavigationBar: cart.isEmpty
           ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Tổng cộng'),
-                        Text(
-                          formatVnd(cart.totalPrice),
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const CheckoutScreen(),
-                        ),
-                      ),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        child: Text('Đặt hàng', style: TextStyle(fontSize: 16)),
-                      ),
-                    ),
-                  ],
+          : TotalBar(
+              label: 'Tổng cộng (${cart.itemCount} ly)',
+              amount: cart.totalPrice,
+              button: FilledButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CheckoutScreen()),
                 ),
+                child: const Text('Đặt hàng'),
               ),
             ),
     );

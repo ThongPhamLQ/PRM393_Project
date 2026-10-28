@@ -39,10 +39,9 @@ dependencies:
   path: ^1.9.1
   shared_preferences: ^2.5.6
   flutter_local_notifications: ^22.3.2
-  flutter_map: ^8.3.2
-  latlong2: ^0.10.1
   url_launcher: ^6.3.3
   sqflite_common_ffi_web: ^1.2.0
+  maplibre_gl: ^0.27.1
 
 dev_dependencies:
   flutter_test:
@@ -74,10 +73,11 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  # Ảnh món (đường dẫn lưu ở cột products.imageUrl) và banner màn Menu.
+  # Khai báo thư mục chỉ lấy file nằm ngay trong đó, không lấy thư mục con.
+  assets:
+    - assets/images/products/
+    - assets/images/banner/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

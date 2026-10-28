@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Bản release cần khai báo INTERNET để tải bản đồ (OpenStreetMap) -->
+    <!-- Bản release cần khai báo INTERNET để tải bản đồ (Goong) -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application

@@ -8,6 +8,10 @@ const String shopOpenHours = '07:00 - 22:00 (Thứ 2 - Chủ nhật)';
 const double shopLatitude = 16.0605;
 const double shopLongitude = 108.2097;
 
+// Maptiles key của Goong (account.goong.io), đọc từ file .env khi chạy
+// `flutter run --dart-define-from-file=.env`; rỗng thì màn Cửa hàng báo thiếu key
+const String goongMaptilesKey = String.fromEnvironment('GOONG_MAPTILES_KEY');
+
 // ===== Size đồ uống =====
 // Map: key = tên size, value = giá cộng thêm so với giá gốc
 const Map<String, int> sizePrices = {'S': 0, 'M': 6000, 'L': 10000};

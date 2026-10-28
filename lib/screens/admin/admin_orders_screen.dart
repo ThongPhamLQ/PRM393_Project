@@ -7,7 +7,9 @@ import 'package:provider/provider.dart';
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import '../../widgets/empty_view.dart';
+import '../../widgets/max_width_box.dart';
 import '../../widgets/order_card.dart';
+import '../../widgets/order_status_chip.dart';
 import '../shared/order_detail_screen.dart';
 
 // Chủ quán: danh sách tất cả đơn, lọc theo trạng thái
@@ -40,57 +42,34 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         ? allOrders
         : allOrders.where((o) => o.status == _filter).toList();
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: Card(
-            child: ListTile(
-              leading: const Icon(Icons.dashboard_outlined),
-              title: const Text('Tổng quan kinh doanh'),
-              subtitle: const Text('Doanh thu, đơn hàng và đồ uống bán chạy'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const AdminDashboardScreen(),
-                ),
-              ),
+    return MaxWidthBox(
+      maxWidth: 800,
+      child: Column(
+        children: [
+          // Bộ lọc trạng thái, kèm số lượng đơn của từng trạng thái
+          SizedBox(
+            height: 64,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              children: [
+                _buildFilterChip('Tất cả', null, allOrders.length),
+                ...OrderStatus.values.map((status) => _buildFilterChip(
+                      status.label,
+                      status,
+                      allOrders.where((o) => o.status == status).length,
+                    )),
+              ],
             ),
           ),
-        ),
-
-        // Bộ lọc trạng thái, kèm số lượng đơn của từng trạng thái
-        SizedBox(
-          height: 56,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            children: [
-              _buildFilterChip('Tất cả', null, allOrders.length),
-              ...OrderStatus.values.map(
-                (status) => _buildFilterChip(
-                  status.label,
-                  status,
-                  allOrders.where((o) => o.status == status).length,
-                ),
-              ),
-            ],
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadOrders,
+              child: _buildOrderList(orderProvider.isLoading, orders),
+            ),
           ),
-        ),
-        if (orderProvider.loadError != null)
-          MaterialBanner(
-            content: Text(orderProvider.loadError!),
-            actions: [
-              TextButton(onPressed: _loadOrders, child: const Text('Thử lại')),
-            ],
-          ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _loadOrders,
-            child: _buildOrderList(orderProvider.isLoading, orders),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -106,9 +85,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         ],
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       itemCount: orders.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final order = orders[index];
         return OrderCard(
@@ -127,11 +107,19 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   Widget _buildFilterChip(String label, OrderStatus? status, int count) {
+    final colors = Theme.of(context).colorScheme;
+    final selected = _filter == status;
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ChoiceChip(
+        // Icon cùng màu chữ của chip (theme chỉ đổi màu chữ theo trạng thái chọn)
+        avatar: Icon(
+          status?.icon ?? Icons.apps,
+          size: 18,
+          color: selected ? colors.onPrimary : colors.primary,
+        ),
         label: Text('$label ($count)'),
-        selected: _filter == status,
+        selected: selected,
         onSelected: (_) => setState(() => _filter = status),
       ),
     );
