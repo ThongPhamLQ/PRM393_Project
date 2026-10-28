@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/menu_provider.dart';
 import '../../utils/constants.dart';
 import '../../widgets/cart_button.dart';
@@ -51,11 +52,15 @@ class MenuScreen extends StatelessWidget {
                   height: 56,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     children: [
                       _buildCategoryChip(menu, 'Tất cả', null),
-                      ...menu.categories
-                          .map((c) => _buildCategoryChip(menu, c.name, c.id)),
+                      ...menu.categories.map(
+                        (c) => _buildCategoryChip(menu, c.name, c.id),
+                      ),
                     ],
                   ),
                 ),
@@ -71,11 +76,11 @@ class MenuScreen extends StatelessWidget {
                           padding: const EdgeInsets.all(12),
                           gridDelegate:
                               SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            childAspectRatio: 0.75,
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
-                          ),
+                                crossAxisCount: crossAxisCount,
+                                childAspectRatio: 0.75,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
                           itemCount: products.length,
                           itemBuilder: (context, index) {
                             final product = products[index];

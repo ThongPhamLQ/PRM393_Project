@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../utils/logout_helper.dart';
 import 'admin_chat_list_screen.dart';
 import 'admin_orders_screen.dart';
@@ -18,7 +19,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_currentIndex == 0 ? 'Quản lý đơn hàng' : 'Tin nhắn khách hàng'),
+        title: Text(
+          _currentIndex == 0 ? 'Quản lý đơn hàng' : 'Tin nhắn khách hàng',
+        ),
         actions: [
           IconButton(
             tooltip: 'Đăng xuất',
@@ -34,7 +37,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long), label: 'Đơn hàng'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Đơn hàng',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Tin nhắn'),
         ],
       ),

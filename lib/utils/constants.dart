@@ -10,11 +10,7 @@ const double shopLongitude = 108.2097;
 
 // ===== Size đồ uống =====
 // Map: key = tên size, value = giá cộng thêm so với giá gốc
-const Map<String, int> sizePrices = {
-  'S': 0,
-  'M': 6000,
-  'L': 10000,
-};
+const Map<String, int> sizePrices = {'S': 0, 'M': 6000, 'L': 10000};
 
 // ===== Vai trò người dùng =====
 const String roleCustomer = 'customer';

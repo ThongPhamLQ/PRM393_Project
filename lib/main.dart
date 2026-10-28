@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
+
 import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/chat_provider.dart';

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../utils/format.dart';
@@ -77,7 +78,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     title: Text(
                       n.title,
                       style: TextStyle(
-                        fontWeight: n.isRead ? FontWeight.normal : FontWeight.bold,
+                        fontWeight: n.isRead
+                            ? FontWeight.normal
+                            : FontWeight.bold,
                       ),
                     ),
                     subtitle: Text('${n.body}\n${formatDateTime(n.createdAt)}'),

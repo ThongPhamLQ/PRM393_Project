@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/chat_message.dart';
 import '../../providers/chat_provider.dart';
 import '../../utils/constants.dart';
@@ -51,10 +52,10 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty) return;
     _messageController.clear();
     await context.read<ChatProvider>().sendMessage(
-          customerId: widget.customerId,
-          sender: _mySender,
-          content: text,
-        );
+      customerId: widget.customerId,
+      sender: _mySender,
+      content: text,
+    );
   }
 
   @override
@@ -69,9 +70,7 @@ class _ChatScreenState extends State<ChatScreen> {
             child: messages.isEmpty
                 ? EmptyView(
                     icon: Icons.chat_bubble_outline,
-                    message: widget.isShop
-                        ? 'Chưa có tin nhắn'
-                        : 'Hãy gửi tin nhắn cho quán.\nQuán sẽ trả lời bạn sớm nhất!',
+                    message: widget.isShop ? 'Chưa có tin nhắn' : 'Hãy gửi tin nhắn cho quán.\nQuán sẽ trả lời bạn sớm nhất!',
                   )
                 : ListView.builder(
                     // reverse: danh sách bắt đầu từ dưới lên -> luôn thấy tin mới nhất

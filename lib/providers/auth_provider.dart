@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/user.dart';
 import '../repositories/user_repository.dart';
 
 // Quản lý đăng nhập / đăng ký / phiên đăng nhập (Module 10)
 class AuthProvider extends ChangeNotifier {
-  static const _sessionKey = 'logged_in_user_id'; // key lưu trong SharedPreferences
+  static const _sessionKey =
+      'logged_in_user_id'; // key lưu trong SharedPreferences
   final _userRepo = UserRepository();
 
   User? _currentUser;

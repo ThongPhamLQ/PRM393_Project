@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../widgets/empty_view.dart';
@@ -42,7 +43,10 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       body = ListView(
         children: const [
           SizedBox(height: 120),
-          EmptyView(icon: Icons.receipt_long, message: 'Bạn chưa có đơn hàng nào'),
+          EmptyView(
+            icon: Icons.receipt_long,
+            message: 'Bạn chưa có đơn hàng nào',
+          ),
         ],
       );
     } else {
@@ -56,7 +60,9 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             order: order,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)),
+              MaterialPageRoute(
+                builder: (_) => OrderDetailScreen(order: order),
+              ),
             ),
           );
         },
@@ -66,7 +72,23 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Đơn hàng của tôi')),
       // Kéo xuống để tải lại (xem trạng thái mới nhất)
-      body: RefreshIndicator(onRefresh: _loadOrders, child: body),
+      body: Column(
+        children: [
+          if (orderProvider.loadError != null)
+            MaterialBanner(
+              content: Text(orderProvider.loadError!),
+              actions: [
+                TextButton(
+                  onPressed: _loadOrders,
+                  child: const Text('Thử lại'),
+                ),
+              ],
+            ),
+          Expanded(
+            child: RefreshIndicator(onRefresh: _loadOrders, child: body),
+          ),
+        ],
+      ),
     );
   }
 }

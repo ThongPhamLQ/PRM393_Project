@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+
+import '../../models/cart_item.dart';
+
 import 'package:provider/provider.dart';
+
 import '../../models/order.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
@@ -45,68 +49,99 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _placeOrder() async {
+    if (_isLoading) return; // Chặn nhấn đúp, kể cả khi đang mở dialog.
     if (!_formKey.currentState!.validate()) return;
 
-    // Lấy provider trước các lệnh await
     final cart = context.read<CartProvider>();
+    if (cart.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Giỏ hàng đang trống.')));
+      return;
+    }
     final orderProvider = context.read<OrderProvider>();
     final notificationProvider = context.read<NotificationProvider>();
     final user = context.read<AuthProvider>().currentUser!;
+    // Snapshot để tổng tiền và món lưu khớp với thời điểm bắt đầu checkout.
+    final items = cart.items
+        .map(
+          (item) => CartItem(
+            product: item.product,
+            size: item.size,
+            toppings: List.of(item.toppings),
+            note: item.note,
+            quantity: item.quantity,
+          ),
+        )
+        .toList();
+    final amount = items.fold<int>(0, (sum, item) => sum + item.totalPrice);
+    final paymentMethod = _paymentMethod;
+    setState(() => _isLoading = true);
+    bool orderSaved = false;
+    try {
+      if (paymentMethod != PaymentMethod.cash) {
+        final paid = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) =>
+              FakePaymentDialog(method: paymentMethod, amount: amount),
+        );
+        if (!mounted || paid != true) return;
+      }
 
-    // 1. Thanh toán online -> mở hộp thoại thanh toán giả lập
-    if (_paymentMethod != PaymentMethod.cash) {
-      final paid = await showDialog<bool>(
+      final orderId = await orderProvider.placeOrder(
+        user: user,
+        cartItems: items,
+        customerName: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
+        note: _noteController.text.trim(),
+        paymentMethod: paymentMethod,
+      );
+      orderSaved = true;
+      cart.clear(); // Không thể gửi lại đơn vì lỗi thông báo hoặc đóng dialog.
+
+      try {
+        await notificationProvider.loadNotifications(user.id!);
+      } catch (e) {
+        debugPrint('Refreshing notification badge failed: $e');
+      }
+      if (!mounted) return;
+      await showDialog<void>(
         context: context,
-        barrierDismissible: false, // bắt buộc bấm Hủy hoặc Thanh toán
-        builder: (_) => FakePaymentDialog(
-          method: _paymentMethod,
-          amount: cart.totalPrice,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.check_circle, color: Colors.green, size: 64),
+          title: const Text('Đặt hàng thành công!'),
+          content: Text(
+            'Mã đơn hàng: #$orderId\n'
+            'Bạn có thể theo dõi trạng thái ở tab "Đơn hàng".',
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('OK'),
+            ),
+          ],
         ),
       );
-      if (paid != true) return; // khách bấm Hủy
-    }
-
-    // 2. Lưu đơn hàng vào database
-    setState(() => _isLoading = true);
-    final orderId = await orderProvider.placeOrder(
-      user: user,
-      cartItems: cart.items,
-      customerName: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
-      address: _addressController.text.trim(),
-      note: _noteController.text.trim(),
-      paymentMethod: _paymentMethod,
-    );
-
-    // 3. Cập nhật số thông báo chưa đọc (vừa có thông báo "Đặt hàng thành công")
-    await notificationProvider.loadNotifications(user.id!);
-    if (!mounted) return;
-
-    // 4. Báo thành công
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.check_circle, color: Colors.green, size: 64),
-        title: const Text('Đặt hàng thành công!'),
-        content: Text(
-          'Mã đơn hàng: #$orderId\n'
-          'Bạn có thể theo dõi trạng thái ở tab "Đơn hàng".',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('OK'),
+      if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
+    } catch (e) {
+      debugPrint('Checkout failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              orderSaved
+                  ? 'Đơn đã được lưu nhưng có lỗi khi hiển thị kết quả. Hãy kiểm tra lịch sử đơn.'
+                  : 'Không thể lưu đơn hàng. Vui lòng thử lại.',
+            ),
           ),
-        ],
-      ),
-    );
-    if (!mounted) return;
-
-    // 5. Xóa giỏ hàng và quay về màn hình chính
-    cart.clear();
-    Navigator.popUntil(context, (route) => route.isFirst);
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -186,8 +221,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
-                title: Text('${item.quantity} x ${item.product.name} (${item.size})'),
-                subtitle: item.toppings.isEmpty ? null : Text(item.toppingNames),
+                title: Text(
+                  '${item.quantity} x ${item.product.name} (${item.size})',
+                ),
+                subtitle: item.toppings.isEmpty
+                    ? null
+                    : Text(item.toppingNames),
                 trailing: Text(formatVnd(item.totalPrice)),
               );
             }),
@@ -216,9 +255,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const Spacer(),
               FilledButton(
-                onPressed: _isLoading ? null : _placeOrder, // khóa nút khi đang xử lý
+                onPressed: (_isLoading || cart.isEmpty) ? null : _placeOrder,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 12,
+                  ),
                   child: _isLoading
                       ? const SizedBox(
                           width: 20,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/auth_provider.dart';
 import '../services/notification_service.dart';
 import '../utils/constants.dart';
@@ -24,7 +25,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkLogin() async {
     final auth = context.read<AuthProvider>();
-    await Future.delayed(const Duration(seconds: 1)); // cho người dùng thấy logo
+    await Future.delayed(
+      const Duration(seconds: 1),
+    ); // cho người dùng thấy logo
     final loggedIn = await auth.tryAutoLogin();
     if (!mounted) return;
 

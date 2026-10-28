@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../models/product.dart';
 import '../utils/format.dart';
 import 'product_image.dart';

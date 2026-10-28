@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/product.dart';
 import '../repositories/menu_repository.dart';
 
@@ -24,8 +25,9 @@ class MenuProvider extends ChangeNotifier {
     return _products.where((p) {
       final matchCategory =
           _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
-      final matchSearch =
-          p.name.toLowerCase().contains(_searchText.toLowerCase());
+      final matchSearch = p.name.toLowerCase().contains(
+        _searchText.toLowerCase(),
+      );
       return matchCategory && matchSearch;
     }).toList();
   }

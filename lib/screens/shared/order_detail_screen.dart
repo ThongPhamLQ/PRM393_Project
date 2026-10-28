@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/format.dart';
@@ -12,7 +13,11 @@ class OrderDetailScreen extends StatefulWidget {
   final Order order;
   final bool isAdmin;
 
-  const OrderDetailScreen({super.key, required this.order, this.isAdmin = false});
+  const OrderDetailScreen({
+    super.key,
+    required this.order,
+    this.isAdmin = false,
+  });
 
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
@@ -32,17 +37,39 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _changeStatus(OrderStatus newStatus) async {
+    if (_isUpdating) return;
+    final provider = context.read<OrderProvider>();
     setState(() => _isUpdating = true);
-    await context.read<OrderProvider>().updateStatus(_order, newStatus);
-    if (!mounted) return;
-
-    setState(() {
-      _order = _order.copyWith(status: newStatus);
-      _isUpdating = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Đơn #${_order.id}: ${newStatus.label}')),
-    );
+    try {
+      await provider.updateStatus(_order, newStatus);
+      if (!mounted) return;
+      setState(() => _order = _order.copyWith(status: newStatus));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đơn #${_order.id}: ${newStatus.label}')),
+      );
+    } catch (e) {
+      debugPrint('Update order status failed: $e');
+      // Tải lại thực trạng khi đơn đã được chỉnh ở màn hình khác.
+      try {
+        final latest = await provider.getOrderById(_order.id!);
+        if (mounted && latest != null) {
+          setState(() => _order = latest);
+        }
+      } catch (reloadError) {
+        debugPrint('Reload changed order failed: $reloadError');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Không thể cập nhật đơn. Trạng thái có thể đã thay đổi; vui lòng tải lại.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
+    }
   }
 
   Future<void> _confirmCancel() async {
@@ -50,7 +77,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Hủy đơn hàng'),
-        content: Text('Bạn có chắc muốn hủy đơn #${_order.id}?'),
+        content: Text(
+          _order.isPaid
+              ? 'Bạn có chắc muốn hủy đơn #${_order.id}? Thanh toán hiện chỉ là giả lập; ứng dụng không thực hiện hoàn tiền.'
+              : 'Bạn có chắc muốn hủy đơn #${_order.id}?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -85,7 +116,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     children: [
                       const Text(
                         'Trạng thái',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const Spacer(),
                       OrderStatusChip(status: _order.status),
@@ -115,7 +149,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   leading: const Icon(Icons.payment),
                   title: Text(_order.paymentMethod.label),
                   subtitle: Text(
-                    _order.isPaid ? 'Đã thanh toán' : 'Thanh toán khi nhận hàng',
+                    _order.isPaid
+                        ? 'Đã thanh toán'
+                        : 'Thanh toán khi nhận hàng',
                   ),
                 ),
                 if (_order.note.isNotEmpty)
@@ -154,14 +190,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ...items.map((item) {
                       // Gộp topping + ghi chú thành 1 dòng mô tả
                       final details = [
-                        if (item.toppings.isNotEmpty) 'Topping: ${item.toppings}',
+                        if (item.toppings.isNotEmpty)
+                          'Topping: ${item.toppings}',
                         if (item.note.isNotEmpty) 'Ghi chú: ${item.note}',
                       ];
                       return ListTile(
                         title: Text(
                           '${item.quantity} x ${item.productName} (${item.size})',
                         ),
-                        subtitle: details.isEmpty ? null : Text(details.join('\n')),
+                        subtitle: details.isEmpty
+                            ? null
+                            : Text(details.join('\n')),
                         trailing: Text(formatVnd(item.totalPrice)),
                       );
                     }),
@@ -259,8 +298,9 @@ class _StatusTimeline extends StatelessWidget {
     }
 
     // Các bước bình thường (bỏ "Đã hủy")
-    final steps =
-        OrderStatus.values.where((s) => s != OrderStatus.cancelled).toList();
+    final steps = OrderStatus.values
+        .where((s) => s != OrderStatus.cancelled)
+        .toList();
     final currentIndex = steps.indexOf(status);
 
     return Column(
@@ -281,8 +321,9 @@ class _StatusTimeline extends StatelessWidget {
                 Text(
                   steps[i].label,
                   style: TextStyle(
-                    fontWeight:
-                        i == currentIndex ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: i == currentIndex
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                 ),
               ],

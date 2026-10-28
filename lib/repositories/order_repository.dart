@@ -8,6 +8,17 @@ class OrderRepository {
   // Lưu đơn hàng + các món trong đơn.
   // Dùng transaction: nếu lỗi giữa chừng thì không lưu gì cả.
   Future<int> createOrder(Order order, List<OrderItem> items) async {
+    if (items.isEmpty ||
+        items.any((item) => item.quantity <= 0 || item.unitPrice < 0)) {
+      throw StateError('Danh sách món trong đơn không hợp lệ.');
+    }
+    final calculatedTotal = items.fold<int>(
+      0,
+      (sum, item) => sum + item.totalPrice,
+    );
+    if (calculatedTotal <= 0 || calculatedTotal != order.totalPrice) {
+      throw StateError('Tổng tiền và chi tiết đơn hàng không khớp.');
+    }
     final db = await _dbHelper.database;
     return db.transaction((txn) async {
       final orderId = await txn.insert('orders', order.toMap()..remove('id'));
@@ -50,13 +61,40 @@ class OrderRepository {
     return rows.map((row) => OrderItem.fromMap(row)).toList();
   }
 
-  Future<void> updateStatus(int orderId, OrderStatus status) async {
+  Future<Order?> getOrderById(int orderId) async {
     final db = await _dbHelper.database;
-    await db.update(
+    final rows = await db.query(
       'orders',
-      {'status': status.name},
       where: 'id = ?',
       whereArgs: [orderId],
+      limit: 1,
     );
+    return rows.isEmpty ? null : Order.fromMap(rows.first);
+  }
+
+  // SQLite UPDATE là nguyên tử. Điều kiện status ngăn ghi đè bản cập nhật
+  // từ màn hình đang giữ trạng thái cũ (optimistic concurrency control).
+  Future<void> updateStatus(
+    int orderId,
+    OrderStatus newStatus, {
+    required OrderStatus expectedStatus,
+  }) async {
+    if (!expectedStatus.canTransitionTo(newStatus)) {
+      throw StateError(
+        'Không thể chuyển đơn từ ${expectedStatus.label} sang ${newStatus.label}.',
+      );
+    }
+    final db = await _dbHelper.database;
+    final changed = await db.update(
+      'orders',
+      {'status': newStatus.name},
+      where: 'id = ? AND status = ?',
+      whereArgs: [orderId, expectedStatus.name],
+    );
+    if (changed != 1) {
+      throw StateError(
+        'Đơn hàng đã thay đổi hoặc không còn tồn tại. Vui lòng tải lại.',
+      );
+    }
   }
 }

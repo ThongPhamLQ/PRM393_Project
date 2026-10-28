@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
 import '../../providers/cart_provider.dart';
@@ -60,10 +61,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(product.name),
-        actions: const [CartButton()],
-      ),
+      appBar: AppBar(title: Text(product.name), actions: const [CartButton()]),
       body: ListView(
         children: [
           SizedBox(
@@ -78,10 +76,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               children: [
                 Text(
                   product.name,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
-                Text(product.description, style: const TextStyle(color: Colors.grey)),
+                Text(
+                  product.description,
+                  style: const TextStyle(color: Colors.grey),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   formatVnd(product.price),
@@ -110,7 +114,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   controlAffinity: ListTileControlAffinity.leading,
                   title: Text('Size ${entry.key}'),
                   secondary: Text(
-                    entry.value == 0 ? 'Mặc định' : '+${formatVnd(entry.value)}',
+                    entry.value == 0
+                        ? 'Mặc định'
+                        : '+${formatVnd(entry.value)}',
                   ),
                 );
               }).toList(),
@@ -160,7 +166,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               IconButton.filledTonal(
                 icon: const Icon(Icons.remove),
                 // Số lượng tối thiểu là 1 -> null để khóa nút
-                onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
+                onPressed: _quantity > 1
+                    ? () => setState(() => _quantity--)
+                    : null,
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -184,7 +192,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             height: 50,
             child: FilledButton.icon(
               icon: const Icon(Icons.add_shopping_cart),
-              label: Text('Thêm vào giỏ - ${formatVnd(_buildCartItem().totalPrice)}'),
+              label: Text(
+                'Thêm vào giỏ - ${formatVnd(_buildCartItem().totalPrice)}',
+              ),
               onPressed: _addToCart,
             ),
           ),

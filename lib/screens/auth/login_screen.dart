@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/validators.dart';
@@ -109,11 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: const Icon(Icons.lock),
                       border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
                         onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword),
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                     validator: validatePassword,
@@ -131,9 +135,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? const SizedBox(
                               width: 24,
                               height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2.5),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                              ),
                             )
-                          : const Text('Đăng nhập', style: TextStyle(fontSize: 16)),
+                          : const Text(
+                              'Đăng nhập',
+                              style: TextStyle(fontSize: 16),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -147,7 +156,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
 
                   // Tài khoản demo
-                  const Text('Tài khoản demo:', style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    'Tài khoản demo:',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,

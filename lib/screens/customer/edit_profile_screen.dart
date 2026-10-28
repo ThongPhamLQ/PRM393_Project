@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../utils/validators.dart';
 
@@ -48,13 +49,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _isLoading = true);
 
     final error = await context.read<AuthProvider>().updateProfile(
-          name: _nameController.text.trim(),
-          phone: _phoneController.text.trim(),
-          // Không bật đổi mật khẩu -> truyền null để giữ mật khẩu cũ
-          currentPassword:
-              _changePassword ? _currentPasswordController.text : null,
-          newPassword: _changePassword ? _newPasswordController.text : null,
-        );
+      name: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
+      // Không bật đổi mật khẩu -> truyền null để giữ mật khẩu cũ
+      currentPassword: _changePassword ? _currentPasswordController.text : null,
+      newPassword: _changePassword ? _newPasswordController.text : null,
+    );
     if (!mounted) return;
     setState(() => _isLoading = false);
 
@@ -149,8 +149,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   controller: _currentPasswordController,
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.next,
-                  decoration:
-                      _passwordDecoration('Mật khẩu hiện tại', Icons.lock_outline),
+                  decoration: _passwordDecoration(
+                    'Mật khẩu hiện tại',
+                    Icons.lock_outline,
+                  ),
                   validator: (value) => (value == null || value.isEmpty)
                       ? 'Vui lòng nhập mật khẩu hiện tại'
                       : null,
@@ -175,8 +177,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   controller: _confirmController,
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.done,
-                  decoration:
-                      _passwordDecoration('Nhập lại mật khẩu mới', Icons.lock),
+                  decoration: _passwordDecoration(
+                    'Nhập lại mật khẩu mới',
+                    Icons.lock,
+                  ),
                   validator: (value) => value != _newPasswordController.text
                       ? 'Mật khẩu nhập lại không khớp'
                       : null,
@@ -194,7 +198,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           height: 24,
                           child: CircularProgressIndicator(strokeWidth: 2.5),
                         )
-                      : const Text('Lưu thay đổi', style: TextStyle(fontSize: 16)),
+                      : const Text(
+                          'Lưu thay đổi',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
               ),
             ],

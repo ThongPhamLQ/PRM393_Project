@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/validators.dart';
@@ -78,7 +79,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             children: [
               TextFormField(
                 controller: _nameController,
-                textInputAction: TextInputAction.next, // bấm Next nhảy sang ô dưới
+                textInputAction:
+                    TextInputAction.next, // bấm Next nhảy sang ô dưới
                 decoration: const InputDecoration(
                   labelText: 'Họ tên',
                   prefixIcon: Icon(Icons.person),
@@ -120,9 +122,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   prefixIcon: const Icon(Icons.lock),
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword
-                        ? Icons.visibility
-                        : Icons.visibility_off),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
                   ),

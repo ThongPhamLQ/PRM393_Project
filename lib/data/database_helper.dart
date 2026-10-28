@@ -156,7 +156,12 @@ class DatabaseHelper {
       [1, 'Cà phê sữa đá', 'Cà phê phin pha cùng sữa đặc', 29000],
       [1, 'Bạc xỉu', 'Nhiều sữa, ít cà phê, vị béo nhẹ', 32000],
       [1, 'Cappuccino', 'Espresso với sữa tươi đánh bọt', 45000],
-      [2, 'Trà sữa trân châu đường đen', 'Trà sữa béo cùng trân châu đường đen', 39000],
+      [
+        2,
+        'Trà sữa trân châu đường đen',
+        'Trà sữa béo cùng trân châu đường đen',
+        39000,
+      ],
       [2, 'Trà sữa truyền thống', 'Trà đen pha sữa, vị cổ điển', 35000],
       [2, 'Trà sữa matcha', 'Matcha Nhật Bản kết hợp sữa tươi', 42000],
       [2, 'Trà sữa Thái xanh', 'Trà Thái xanh thơm mát', 35000],

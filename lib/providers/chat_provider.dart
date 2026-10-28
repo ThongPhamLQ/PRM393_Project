@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/chat_message.dart';
 import '../repositories/chat_repository.dart';
 
@@ -7,7 +8,8 @@ class ChatProvider extends ChangeNotifier {
   final _chatRepo = ChatRepository();
 
   List<ChatMessage> _messages = []; // tin nhắn của cuộc trò chuyện đang mở
-  List<Conversation> _conversations = []; // danh sách cuộc trò chuyện (chủ quán)
+  List<Conversation> _conversations =
+      []; // danh sách cuộc trò chuyện (chủ quán)
 
   List<ChatMessage> get messages => _messages;
   List<Conversation> get conversations => _conversations;
@@ -23,12 +25,14 @@ class ChatProvider extends ChangeNotifier {
     required String sender,
     required String content,
   }) async {
-    await _chatRepo.sendMessage(ChatMessage(
-      customerId: customerId,
-      sender: sender,
-      content: content,
-      createdAt: DateTime.now(),
-    ));
+    await _chatRepo.sendMessage(
+      ChatMessage(
+        customerId: customerId,
+        sender: sender,
+        content: content,
+        createdAt: DateTime.now(),
+      ),
+    );
     await loadMessages(customerId); // tải lại để hiện tin vừa gửi
   }
 

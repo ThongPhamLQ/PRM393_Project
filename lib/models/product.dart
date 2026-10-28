@@ -7,10 +7,7 @@ class MenuCategory {
   MenuCategory({required this.id, required this.name});
 
   factory MenuCategory.fromMap(Map<String, dynamic> map) {
-    return MenuCategory(
-      id: map['id'] as int,
-      name: map['name'] as String,
-    );
+    return MenuCategory(id: map['id'] as int, name: map['name'] as String);
   }
 }
 

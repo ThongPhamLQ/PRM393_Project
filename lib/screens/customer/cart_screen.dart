@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/cart_provider.dart';
 import '../../utils/format.dart';
 import '../../widgets/cart_item_tile.dart';
@@ -98,10 +99,15 @@ class CartScreen extends StatelessWidget {
                     FilledButton(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const CheckoutScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const CheckoutScreen(),
+                        ),
                       ),
                       child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         child: Text('Đặt hàng', style: TextStyle(fontSize: 16)),
                       ),
                     ),

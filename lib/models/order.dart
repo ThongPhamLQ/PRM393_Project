@@ -11,6 +11,11 @@ enum OrderStatus {
   final String message;
   const OrderStatus(this.label, this.message);
 
+  // Chỉ cho phép tiến đúng một bước, hoặc hủy khi còn chờ xác nhận.
+  bool canTransitionTo(OrderStatus target) =>
+      (this == OrderStatus.pending && target == OrderStatus.cancelled) ||
+      next == target;
+
   // Trạng thái kế tiếp khi chủ quán bấm "chuyển trạng thái"
   // Trả về null nếu đơn đã kết thúc (hoàn thành / đã hủy)
   OrderStatus? get next {
@@ -109,7 +114,9 @@ class Order {
       phone: map['phone'] as String,
       address: map['address'] as String,
       note: (map['note'] as String?) ?? '',
-      paymentMethod: PaymentMethod.values.byName(map['paymentMethod'] as String),
+      paymentMethod: PaymentMethod.values.byName(
+        map['paymentMethod'] as String,
+      ),
       isPaid: map['isPaid'] == 1,
       totalPrice: map['totalPrice'] as int,
       status: OrderStatus.values.byName(map['status'] as String),

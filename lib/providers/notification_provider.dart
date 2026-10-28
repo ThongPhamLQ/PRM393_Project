@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../models/app_notification.dart';
 import '../repositories/notification_repository.dart';
 
