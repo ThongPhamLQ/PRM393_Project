@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +7,7 @@ import '../../providers/chat_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/format.dart';
 import '../../widgets/empty_view.dart';
+import '../../widgets/max_width_box.dart';
 
 // Màn hình chat (dùng chung):
 // - Khách hàng mở: isShop = false, tin của khách nằm bên phải
@@ -64,64 +66,66 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: Column(
-        children: [
-          Expanded(
-            child: messages.isEmpty
-                ? EmptyView(
-                    icon: Icons.chat_bubble_outline,
-                    message: widget.isShop ? 'Chưa có tin nhắn' : 'Hãy gửi tin nhắn cho quán.\nQuán sẽ trả lời bạn sớm nhất!',
-                  )
-                : ListView.builder(
-                    // reverse: danh sách bắt đầu từ dưới lên -> luôn thấy tin mới nhất
-                    reverse: true,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      // Vì reverse nên lấy từ cuối danh sách
-                      final message = messages[messages.length - 1 - index];
-                      return _MessageBubble(
-                        message: message,
-                        isMine: message.sender == _mySender,
-                      );
-                    },
-                  ),
-          ),
+      body: MaxWidthBox(
+        maxWidth: 800,
+        child: Column(
+          children: [
+            Expanded(
+              child: messages.isEmpty
+                  ? EmptyView(
+                      icon: Icons.chat_bubble_outline,
+                      message: widget.isShop
+                          ? 'Chưa có tin nhắn'
+                          : 'Hãy gửi tin nhắn cho quán.\nQuán sẽ trả lời bạn sớm nhất!',
+                    )
+                  : ListView.builder(
+                      // reverse: danh sách bắt đầu từ dưới lên -> luôn thấy tin mới nhất
+                      reverse: true,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        // Vì reverse nên lấy từ cuối danh sách
+                        final message = messages[messages.length - 1 - index];
+                        return _MessageBubble(
+                          message: message,
+                          isMine: message.sender == _mySender,
+                        );
+                      },
+                    ),
+            ),
 
-          // Ô nhập tin nhắn
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _send(),
-                      decoration: InputDecoration(
-                        hintText: 'Nhập tin nhắn...',
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
+            // Ô nhập tin nhắn (dạng viên thuốc theo theme) trên thanh màu thẻ,
+            // tách khỏi nền kem của danh sách tin
+            Material(
+              color: Theme.of(context).cardColor,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _send(),
+                          decoration: const InputDecoration(
+                            hintText: 'Nhập tin nhắn...',
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 4),
+                      IconButton.filled(
+                        tooltip: 'Gửi',
+                        icon: const Icon(Icons.send),
+                        onPressed: _send,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    icon: const Icon(Icons.send),
-                    onPressed: _send,
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -138,18 +142,27 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textColor = isMine ? colors.onPrimary : colors.onSurface;
+    const radius = Radius.circular(20);
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
+          // Tối đa 75% bề rộng màn hình, không quá 560px trên màn rộng
+          maxWidth: min(MediaQuery.sizeOf(context).width * 0.75, 560),
         ),
         margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isMine ? colors.primary : colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
+          // Tin của người kia: màu thẻ (trắng) trên nền kem
+          color: isMine ? colors.primary : Theme.of(context).cardColor,
+          // Góc nhọn ở phía người gửi giống "đuôi" bong bóng chat
+          borderRadius: BorderRadius.only(
+            topLeft: radius,
+            topRight: radius,
+            bottomLeft: isMine ? radius : const Radius.circular(6),
+            bottomRight: isMine ? const Radius.circular(6) : radius,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,8 +172,11 @@ class _MessageBubble extends StatelessWidget {
             Text(
               formatDateTime(message.createdAt),
               style: TextStyle(
-                fontSize: 10,
-                color: textColor.withValues(alpha: 0.7),
+                fontSize: 11,
+                // Giờ gửi: chữ mờ hơn nhưng vẫn ≥ 4.5:1 (onPrimary 80% trên primary)
+                color: isMine
+                    ? colors.onPrimary.withValues(alpha: 0.8)
+                    : colors.onSurfaceVariant,
               ),
             ),
           ],

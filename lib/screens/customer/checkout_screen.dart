@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/cart_item.dart';
-
-import 'package:provider/provider.dart';
 
 import '../../models/order.dart';
 import '../../providers/auth_provider.dart';
@@ -12,6 +11,10 @@ import '../../providers/order_provider.dart';
 import '../../utils/format.dart';
 import '../../utils/validators.dart';
 import '../../widgets/fake_payment_dialog.dart';
+import '../../widgets/max_width_box.dart';
+import '../../widgets/product_image.dart';
+import '../../widgets/section_card.dart';
+import '../../widgets/total_bar.dart';
 
 // Đặt hàng: nhập thông tin nhận hàng + chọn cách thanh toán
 class CheckoutScreen extends StatefulWidget {
@@ -144,145 +147,149 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  // Biểu tượng cho từng phương thức thanh toán của giao diện mới.
+  IconData _paymentIcon(PaymentMethod method) {
+    switch (method.name.toLowerCase()) {
+      case 'cash':
+        return Icons.payments_outlined;
+      case 'momo':
+        return Icons.account_balance_wallet_outlined;
+      case 'card':
+        return Icons.credit_card_outlined;
+      default:
+        return Icons.payment_outlined;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Đặt hàng')),
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildSectionTitle('Thông tin nhận hàng'),
-            TextFormField(
-              controller: _nameController,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Người nhận',
-                prefixIcon: Icon(Icons.person),
-                border: OutlineInputBorder(),
-              ),
-              validator: validateName,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Số điện thoại',
-                prefixIcon: Icon(Icons.phone),
-                border: OutlineInputBorder(),
-              ),
-              validator: validatePhone,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _addressController,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Địa chỉ giao hàng',
-                prefixIcon: Icon(Icons.location_on),
-                border: OutlineInputBorder(),
-              ),
-              validator: validateAddress,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _noteController,
-              decoration: const InputDecoration(
-                labelText: 'Ghi chú cho quán (không bắt buộc)',
-                prefixIcon: Icon(Icons.note_alt),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            _buildSectionTitle('Phương thức thanh toán'),
-            RadioGroup<PaymentMethod>(
-              groupValue: _paymentMethod,
-              onChanged: (value) => setState(() => _paymentMethod = value!),
-              child: Column(
-                children: PaymentMethod.values.map((method) {
-                  return RadioListTile<PaymentMethod>(
-                    value: method,
-                    title: Text(method.label),
-                    contentPadding: EdgeInsets.zero,
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            _buildSectionTitle('Món đã chọn (${cart.itemCount} ly)'),
-            ...cart.items.map((item) {
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: Text(
-                  '${item.quantity} x ${item.product.name} (${item.size})',
-                ),
-                subtitle: item.toppings.isEmpty
-                    ? null
-                    : Text(item.toppingNames),
-                trailing: Text(formatVnd(item.totalPrice)),
-              );
-            }),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+        child: MaxWidthBox(
+          maxWidth: 720,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Tổng thanh toán'),
-                  Text(
-                    formatVnd(cart.totalPrice),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              FilledButton(
-                onPressed: (_isLoading || cart.isEmpty) ? null : _placeOrder,
+              SectionCard(
+                title: 'Thông tin nhận hàng',
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 12,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: _nameController,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Người nhận',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: validateName,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Số điện thoại',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                        validator: validatePhone,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _addressController,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Địa chỉ giao hàng',
+                          prefixIcon: Icon(Icons.location_on_outlined),
+                        ),
+                        validator: validateAddress,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _noteController,
+                        decoration: const InputDecoration(
+                          labelText: 'Ghi chú cho quán (không bắt buộc)',
+                          prefixIcon: Icon(Icons.edit_note),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        )
-                      : const Text('Xác nhận đặt hàng'),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              SectionCard(
+                title: 'Phương thức thanh toán',
+                child: RadioGroup<PaymentMethod>(
+                  groupValue: _paymentMethod,
+                  onChanged: (value) => setState(() => _paymentMethod = value!),
+                  child: Column(
+                    children: PaymentMethod.values.map((method) {
+                      return RadioListTile<PaymentMethod>(
+                        value: method,
+                        title: Text(method.label),
+                        secondary: Icon(
+                          _paymentIcon(method),
+                          color: colors.onSurfaceVariant,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              SectionCard(
+                title: 'Món đã chọn (${cart.itemCount} ly)',
+                child: Column(
+                  children: cart.items.map((item) {
+                    return ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: ProductImage(
+                            product: item.product,
+                            iconSize: 24,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        '${item.quantity} x ${item.product.name} (${item.size})',
+                      ),
+                      subtitle: item.toppings.isEmpty
+                          ? null
+                          : Text(item.toppingNames),
+                      trailing: Text(formatVnd(item.totalPrice)),
+                    );
+                  }).toList(),
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      bottomNavigationBar: TotalBar(
+        label: 'Tổng thanh toán',
+        amount: cart.totalPrice,
+        button: FilledButton(
+          onPressed: _isLoading ? null : _placeOrder, // khóa nút khi đang xử lý
+          child: _isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                )
+              : const Text('Xác nhận đặt hàng'),
+        ),
       ),
     );
   }

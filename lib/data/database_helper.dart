@@ -20,11 +20,50 @@ class DatabaseHelper {
     final path = join(dbPath, 'cafe_app.db');
     return openDatabase(
       path,
-      version: 1,
+      // version 2: thêm ảnh món. Máy đã cài bản 1 sẽ chạy onUpgrade, không cần gỡ app
+      version: 2,
       // Bật khóa ngoại (SQLite mặc định tắt)
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  // Ảnh 14 món trong assets/images/products: phần tử thứ i là ảnh của món id = i + 1
+  // (cùng thứ tự với danh sách món trong _insertSampleData)
+  static const _productImages = [
+    'assets/images/products/01_ca-phe-den-da.jpg',
+    'assets/images/products/02_ca-phe-sua-da.jpg',
+    'assets/images/products/03_bac-xiu.jpg',
+    'assets/images/products/04_cappuccino.jpg',
+    'assets/images/products/05_tra-sua-tran-chau-duong-den.jpg',
+    'assets/images/products/06_tra-sua-truyen-thong.jpg',
+    'assets/images/products/07_tra-sua-matcha.jpg',
+    'assets/images/products/08_tra-sua-thai-xanh.jpg',
+    'assets/images/products/09_tra-dao-cam-sa.jpg',
+    'assets/images/products/10_tra-vai.jpg',
+    'assets/images/products/11_tra-chanh-day.jpg',
+    'assets/images/products/12_cookie-da-xay.jpg',
+    'assets/images/products/13_matcha-da-xay.jpg',
+    'assets/images/products/14_chocolate-da-xay.jpg',
+  ];
+
+  // Chỉ chạy trên máy đã có database cũ (điện thoại đã cài, IndexedDB của Chrome).
+  // Chỉ điền ảnh cho món còn trống ảnh; không đụng tài khoản, đơn hàng, tin nhắn,
+  // thông báo -> người dùng giữ nguyên dữ liệu.
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      final batch = db.batch();
+      for (var i = 0; i < _productImages.length; i++) {
+        batch.update(
+          'products',
+          {'imageUrl': _productImages[i]},
+          where: "id = ? AND (imageUrl IS NULL OR imageUrl = '')",
+          whereArgs: [i + 1],
+        );
+      }
+      await batch.commit(noResult: true);
+    }
   }
 
   // Chỉ chạy 1 lần khi cài app: tạo bảng + thêm dữ liệu mẫu
@@ -172,13 +211,14 @@ class DatabaseHelper {
       [4, 'Matcha đá xay', 'Matcha xay mịn phủ kem tươi', 49000],
       [4, 'Chocolate đá xay', 'Chocolate đậm đà xay cùng đá', 49000],
     ];
-    for (final p in products) {
+    for (var i = 0; i < products.length; i++) {
+      final p = products[i];
       batch.insert('products', {
         'categoryId': p[0],
         'name': p[1],
         'description': p[2],
         'price': p[3],
-        'imageUrl': '',
+        'imageUrl': _productImages[i], // món thứ i có id = i + 1
       });
     }
 

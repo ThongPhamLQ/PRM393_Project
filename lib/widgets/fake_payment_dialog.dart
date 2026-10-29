@@ -33,22 +33,39 @@ class _FakePaymentDialogState extends State<FakePaymentDialog> {
   @override
   Widget build(BuildContext context) {
     final isMomo = widget.method == PaymentMethod.momo;
+    final colors = Theme.of(context).colorScheme;
 
     return AlertDialog(
       title: Text(widget.method.label),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(isMomo ? Icons.qr_code_2 : Icons.credit_card, size: 100),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isMomo ? Icons.qr_code_2 : Icons.credit_card,
+              size: 96,
+              color: colors.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             isMomo
                 ? 'Quét mã QR bằng ứng dụng MoMo'
                 : 'Thẻ: **** **** **** 1234',
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             'Số tiền: ${formatVnd(widget.amount)}',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(color: colors.primary),
           ),
           if (_isProcessing) ...[
             const SizedBox(height: 16),
