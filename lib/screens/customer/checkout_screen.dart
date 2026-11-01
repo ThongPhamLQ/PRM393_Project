@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/cart_item.dart';
-
-import 'package:provider/provider.dart';
 
 import '../../models/order.dart';
 import '../../providers/auth_provider.dart';
@@ -129,45 +128,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ],
         ),
       );
-      if (paid != true) return; // khách bấm Hủy
-    }
-
-    // 2. Lưu đơn hàng vào database
-    setState(() => _isLoading = true);
-    final orderId = await orderProvider.placeOrder(
-      user: user,
-      cartItems: cart.items,
-      customerName: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
-      address: _addressController.text.trim(),
-      note: _noteController.text.trim(),
-      paymentMethod: _paymentMethod,
-    );
-
-    // 3. Cập nhật số thông báo chưa đọc (vừa có thông báo "Đặt hàng thành công")
-    await notificationProvider.loadNotifications(user.id!);
-    if (!mounted) return;
-
-    // 4. Báo thành công
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        icon: Icon(
-          Icons.check_circle,
-          color: Theme.of(dialogContext).colorScheme.primary,
-          size: 64,
-        ),
-        title: const Text('Đặt hàng thành công!'),
-        content: Text(
-          'Mã đơn hàng: #$orderId\n'
-          'Bạn có thể theo dõi trạng thái ở tab "Đơn hàng".',
-          textAlign: TextAlign.center,
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('OK'),
+      if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
+    } catch (e) {
+      debugPrint('Checkout failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              orderSaved
+                  ? 'Đơn đã được lưu nhưng có lỗi khi hiển thị kết quả. Hãy kiểm tra lịch sử đơn.'
+                  : 'Không thể lưu đơn hàng. Vui lòng thử lại.',
+            ),
           ),
         );
       }
@@ -176,15 +147,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  // Icon cho từng cách thanh toán (chỉ để nhận diện nhanh)
+  // Biểu tượng cho từng phương thức thanh toán của giao diện mới.
   IconData _paymentIcon(PaymentMethod method) {
-    switch (method) {
-      case PaymentMethod.cash:
+    switch (method.name.toLowerCase()) {
+      case 'cash':
         return Icons.payments_outlined;
-      case PaymentMethod.momo:
+      case 'momo':
         return Icons.account_balance_wallet_outlined;
-      case PaymentMethod.card:
-        return Icons.credit_card;
+      case 'card':
+        return Icons.credit_card_outlined;
+      default:
+        return Icons.payment_outlined;
     }
   }
 
@@ -283,7 +256,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         child: SizedBox(
                           width: 48,
                           height: 48,
-                          child: ProductImage(product: item.product, iconSize: 24),
+                          child: ProductImage(
+                            product: item.product,
+                            iconSize: 24,
+                          ),
                         ),
                       ),
                       title: Text(

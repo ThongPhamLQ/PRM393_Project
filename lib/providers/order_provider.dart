@@ -7,6 +7,7 @@ import '../models/user.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/order_repository.dart';
 import '../services/notification_service.dart';
+import '../repositories/product_management_repository.dart';
 
 // Quản lý đơn hàng: đặt hàng, lịch sử đơn, chủ quán cập nhật trạng thái
 class OrderProvider extends ChangeNotifier {
@@ -74,6 +75,7 @@ class OrderProvider extends ChangeNotifier {
         cartItems.any((item) => item.quantity <= 0 || item.unitPrice < 0)) {
       throw StateError('Giỏ hàng hoặc người dùng không hợp lệ.');
     }
+    await ProductManagementRepository().assertCartSellable(cartItems);
     final total = cartItems.fold<int>(0, (sum, item) => sum + item.totalPrice);
     if (total <= 0) throw StateError('Tổng tiền đơn hàng không hợp lệ.');
 

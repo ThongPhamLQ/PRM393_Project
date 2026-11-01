@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-
-import 'admin_dashboard_screen.dart';
-
 import 'package:provider/provider.dart';
 
 import '../../models/order.dart';
@@ -9,10 +6,11 @@ import '../../providers/order_provider.dart';
 import '../../widgets/empty_view.dart';
 import '../../widgets/max_width_box.dart';
 import '../../widgets/order_card.dart';
-import '../../widgets/order_status_chip.dart';
 import '../shared/order_detail_screen.dart';
+import 'admin_dashboard_screen.dart';
+import 'admin_products_screen.dart';
 
-// Chủ quán: danh sách tất cả đơn, lọc theo trạng thái
+// Chủ quán: tổng quan, quản lý sản phẩm và danh sách đơn theo trạng thái.
 class AdminOrdersScreen extends StatefulWidget {
   const AdminOrdersScreen({super.key});
 
@@ -21,7 +19,7 @@ class AdminOrdersScreen extends StatefulWidget {
 }
 
 class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
-  OrderStatus? _filter; // null = tất cả
+  OrderStatus? _filter; // null = tất cả.
 
   @override
   void initState() {
@@ -46,7 +44,43 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       maxWidth: 800,
       child: Column(
         children: [
-          // Bộ lọc trạng thái, kèm số lượng đơn của từng trạng thái
+          // Giữ Dashboard trên nhánh dat.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Card(
+              child: ListTile(
+                leading: const Icon(Icons.dashboard_outlined),
+                title: const Text('Tổng quan kinh doanh'),
+                subtitle: const Text('Doanh thu, đơn hàng và đồ uống bán chạy'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AdminDashboardScreen(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Giữ Product Management, Bulk Delete và khôi phục trên nhánh dat.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: Card(
+              child: ListTile(
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text('Quản lý sản phẩm'),
+                subtitle: const Text(
+                  'Đồ uống, danh mục, topping, tình trạng bán',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const AdminProductsScreen(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Giữ bộ lọc trạng thái và icon theo giao diện redesign từ master.
           SizedBox(
             height: 64,
             child: ListView(
@@ -54,14 +88,27 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               children: [
                 _buildFilterChip('Tất cả', null, allOrders.length),
-                ...OrderStatus.values.map((status) => _buildFilterChip(
-                      status.label,
-                      status,
-                      allOrders.where((o) => o.status == status).length,
-                    )),
+                ...OrderStatus.values.map(
+                  (status) => _buildFilterChip(
+                    status.label,
+                    status,
+                    allOrders.where((o) => o.status == status).length,
+                  ),
+                ),
               ],
             ),
           ),
+          // Giữ phần thông báo lỗi tải đơn của nhánh dat.
+          if (orderProvider.loadError != null)
+            MaterialBanner(
+              content: Text(orderProvider.loadError!),
+              actions: [
+                TextButton(
+                  onPressed: _loadOrders,
+                  child: const Text('Thử lại'),
+                ),
+              ],
+            ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadOrders,
@@ -85,6 +132,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         ],
       );
     }
+    // Giữ ListView.separated và spacing từ giao diện redesign của master.
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       itemCount: orders.length,
@@ -97,7 +145,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           showCustomerName: true,
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (_) => OrderDetailScreen(order: order, isAdmin: true),
             ),
           ),
@@ -112,9 +160,16 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: ChoiceChip(
-        // Icon cùng màu chữ của chip (theme chỉ đổi màu chữ theo trạng thái chọn)
         avatar: Icon(
-          status?.icon ?? Icons.apps,
+          switch (status?.name) {
+            'pending' => Icons.schedule_outlined,
+            'confirmed' => Icons.check_circle_outline,
+            'preparing' => Icons.local_cafe_outlined,
+            'delivering' => Icons.delivery_dining_outlined,
+            'completed' => Icons.task_alt_outlined,
+            'cancelled' => Icons.cancel_outlined,
+            _ => Icons.apps,
+          },
           size: 18,
           color: selected ? colors.onPrimary : colors.primary,
         ),

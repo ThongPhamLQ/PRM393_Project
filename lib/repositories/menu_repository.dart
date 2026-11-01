@@ -1,5 +1,6 @@
 import '../data/database_helper.dart';
 import '../models/product.dart';
+import 'product_management_repository.dart';
 
 // Đọc menu: danh mục, món, topping
 class MenuRepository {
@@ -12,8 +13,13 @@ class MenuRepository {
   }
 
   Future<List<Product>> getProducts() async {
+    await ProductManagementRepository().ensureSchema();
     final db = await _dbHelper.database;
-    final rows = await db.query('products', orderBy: 'categoryId, id');
+    final rows = await db.query(
+      'products',
+      where: "id NOT IN (SELECT productId FROM product_sale_status WHERE status != 'available')",
+      orderBy: 'categoryId, id',
+    );
     return rows.map((row) => Product.fromMap(row)).toList();
   }
 
