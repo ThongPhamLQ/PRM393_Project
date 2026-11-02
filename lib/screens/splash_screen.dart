@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/notification_service.dart';
 import '../utils/constants.dart';
+import '../widgets/app_logo.dart';
 import '../widgets/brand_block.dart';
 
 // Màn hình chờ: kiểm tra phiên đăng nhập (Module 10 - Demo 10.3 Auto Login)
@@ -59,13 +60,10 @@ class _SplashScreenState extends State<SplashScreen> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                ExcludeSemantics(
-                  child: CircleAvatar(
-                    radius: 64,
-                    backgroundColor: colors.primaryFixed,
-                    foregroundColor: colors.onPrimaryFixedVariant,
-                    child: const Icon(Icons.local_cafe, size: 72),
-                  ),
+                AppLogo(
+                  size: 128,
+                  background: colors.primaryFixed,
+                  foreground: colors.onPrimaryFixedVariant,
                 ),
                 const SizedBox(height: 24),
                 Text(

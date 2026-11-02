@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Giữ icon dùng cho thông báo, tránh bị xóa khi build release -->
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@mipmap/ic_launcher" />
+    tools:keep="@mipmap/ic_launcher,@drawable/ic_stat_cafe" />

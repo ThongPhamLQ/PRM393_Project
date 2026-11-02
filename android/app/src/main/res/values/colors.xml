@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nâu thương hiệu = onPrimaryFixedVariant của ColorScheme.fromSeed(0xFF795548) -->
+    <color name="ic_launcher_background">#72361E</color>
+    <color name="splash_background">#72361E</color>
+</resources>

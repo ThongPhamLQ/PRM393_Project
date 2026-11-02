@@ -14,7 +14,9 @@ class NotificationService {
   Future<void> init() async {
     try {
       const settings = InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        // Icon nhỏ trên thanh trạng thái: logo trắng nền trong suốt
+        // (Android tô trắng cả hình, dùng icon app có nền sẽ thành ô vuông trắng)
+        android: AndroidInitializationSettings('@drawable/ic_stat_cafe'),
       );
       await _plugin.initialize(settings: settings);
     } catch (e) {
