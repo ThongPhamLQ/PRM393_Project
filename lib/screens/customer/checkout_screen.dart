@@ -40,6 +40,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = context.read<AuthProvider>().currentUser!;
     _nameController.text = user.name;
     _phoneController.text = user.phone;
+    // Nhớ địa chỉ: lấy địa chỉ của đơn gần nhất (danh sách đã sắp mới nhất lên đầu)
+    _addressController.text =
+        context.read<OrderProvider>().orders.firstOrNull?.address ?? '';
   }
 
   @override
@@ -70,6 +73,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             product: item.product,
             size: item.size,
             toppings: List.of(item.toppings),
+            sugar: item.sugar,
+            ice: item.ice,
             note: item.note,
             quantity: item.quantity,
           ),
@@ -133,6 +138,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // Topping + mức đường/đá của 1 món, VD: "Trân châu đen · Đường 70% · Ít đá"
+  String _itemDetails(CartItem item) => [
+    if (item.toppings.isNotEmpty) item.toppingNames,
+    formatSugarIce(item.sugar, item.ice),
+  ].where((s) => s.isNotEmpty).join(' · ');
 
   // Biểu tượng cho từng phương thức thanh toán của giao diện mới.
   IconData _paymentIcon(PaymentMethod method) {
@@ -252,9 +263,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       title: Text(
                         '${item.quantity} x ${item.product.name} (${item.size})',
                       ),
-                      subtitle: item.toppings.isEmpty
+                      subtitle: _itemDetails(item).isEmpty
                           ? null
-                          : Text(item.toppingNames),
+                          : Text(_itemDetails(item)),
                       trailing: Text(formatVnd(item.totalPrice)),
                     );
                   }).toList(),

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/cart_item.dart';
 import '../../models/order.dart';
+import '../../providers/cart_provider.dart';
+import '../../providers/menu_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/format.dart';
 import '../../utils/motion.dart';
 import '../../widgets/max_width_box.dart';
 import '../../widgets/order_status_chip.dart';
 import '../../widgets/section_card.dart';
+import '../customer/cart_screen.dart';
 
 // Chi tiết đơn hàng (dùng chung):
 // - Khách hàng: xem trạng thái, được hủy khi đơn còn "Chờ xác nhận"
@@ -120,6 +124,38 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (confirmed == true) await _changeStatus(OrderStatus.cancelled);
   }
 
+  // Đặt lại: thêm các món của đơn này vào giỏ theo menu hiện tại rồi mở giỏ hàng
+  void _reorder(List<OrderItem> orderItems) {
+    final menu = context.read<MenuProvider>();
+    final cart = context.read<CartProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final (:items, :skipped) = cartItemsFromOrder(
+      orderItems,
+      menu.products,
+      menu.toppings,
+    );
+    if (items.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Các món trong đơn này đã ngừng bán.')),
+      );
+      return;
+    }
+    items.forEach(cart.addItem);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          skipped == 0
+              ? 'Đã thêm ${items.length} món vào giỏ'
+              : 'Đã thêm ${items.length} món · $skipped món không còn bán',
+        ),
+      ),
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CartScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -218,8 +254,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     children: [
                       ...items.map((item) {
                         // Gộp topping + ghi chú thành 1 dòng mô tả
+                        final sugarIce = formatSugarIce(item.sugar, item.ice);
                         final details = [
                           if (item.toppings.isNotEmpty) 'Topping: ${item.toppings}',
+                          if (sugarIce.isNotEmpty) sugarIce,
                           if (item.note.isNotEmpty) 'Ghi chú: ${item.note}',
                         ];
                         return ListTile(
@@ -240,6 +278,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               ?.copyWith(color: colors.primary),
                         ),
                       ),
+                      // Khách xem đơn đã xong / đã hủy: đặt lại đúng các món đó
+                      // (đơn cũ chưa lưu mã món thì không đặt lại được)
+                      if (!widget.isAdmin &&
+                          !order.status.isActive &&
+                          items.any((i) => i.productId != null))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                          child: FilledButton.tonalIcon(
+                            onPressed: () => _reorder(items),
+                            icon: const Icon(Icons.replay),
+                            label: const Text('Đặt lại'),
+                          ),
+                        ),
                     ],
                   );
                 },

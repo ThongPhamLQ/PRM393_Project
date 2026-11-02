@@ -137,17 +137,23 @@ class Order {
 // Lưu lại tên, size, topping, giá tại thời điểm đặt
 // -> sau này quán đổi giá menu thì lịch sử đơn vẫn đúng.
 class OrderItem {
+  final int? productId; // để "Đặt lại"; đơn cũ chưa lưu -> null
   final String productName;
   final String size;
   final String toppings;
+  final String sugar; // mức đường; đơn cũ chưa có -> ''
+  final String ice; // mức đá; đơn cũ chưa có -> ''
   final String note;
   final int quantity;
   final int unitPrice;
 
   OrderItem({
+    this.productId,
     required this.productName,
     required this.size,
     required this.toppings,
+    this.sugar = '',
+    this.ice = '',
     this.note = '',
     required this.quantity,
     required this.unitPrice,
@@ -157,9 +163,12 @@ class OrderItem {
 
   Map<String, dynamic> toMap() {
     return {
+      'productId': ?productId, // null thì không ghi field này
       'productName': productName,
       'size': size,
       'toppings': toppings,
+      'sugar': sugar,
+      'ice': ice,
       'note': note,
       'quantity': quantity,
       'unitPrice': unitPrice,
@@ -168,9 +177,13 @@ class OrderItem {
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
     return OrderItem(
+      productId: (map['productId'] as num?)?.toInt(),
       productName: map['productName'] as String,
       size: map['size'] as String,
       toppings: (map['toppings'] as String?) ?? '',
+      // Đơn đặt trước khi có mức đường / đá -> chuỗi rỗng (không hiện gì)
+      sugar: (map['sugar'] as String?) ?? '',
+      ice: (map['ice'] as String?) ?? '',
       note: (map['note'] as String?) ?? '',
       quantity: (map['quantity'] as num).toInt(),
       unitPrice: (map['unitPrice'] as num).toInt(),

@@ -29,6 +29,8 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String _size = 'S';
   final Set<Topping> _selectedToppings = {}; // Set: mỗi topping chỉ chọn 1 lần
+  String _sugar = defaultSugar;
+  String _ice = defaultIce;
   int _quantity = 1;
   final _noteController = TextEditingController();
   // RawRadio cần FocusNode: chọn size được bằng bàn phím (Chrome)
@@ -49,8 +51,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       product: widget.product,
       size: _size,
       toppings: _selectedToppings.toList(),
+      sugar: _sugar,
+      ice: _ice,
       note: _noteController.text.trim(),
       quantity: _quantity,
+    );
+  }
+
+  // 1 nhóm lựa chọn chỉ chọn 1 (mức đường / mức đá): các chip xếp hàng, tự xuống dòng
+  Widget _levelPicker({
+    required String title,
+    required List<String> levels,
+    required String selected,
+    required String Function(String level) labelOf,
+    required ValueChanged<String> onSelected,
+  }) {
+    return SectionCard(
+      title: title,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final level in levels)
+              ChoiceChip(
+                label: Text(labelOf(level)),
+                selected: level == selected,
+                onSelected: (_) => onSelected(level),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -166,6 +198,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       const SizedBox(height: 12),
 
+      // ===== Mức đường / mức đá: chọn 1, không đổi giá =====
+      _levelPicker(
+        title: 'Mức đường',
+        levels: sugarLevels,
+        selected: _sugar,
+        labelOf: (level) => level == defaultSugar ? '$level (chuẩn)' : level,
+        onSelected: (level) => setState(() => _sugar = level),
+      ),
+      const SizedBox(height: 12),
+      _levelPicker(
+        title: 'Mức đá',
+        levels: iceLevels,
+        selected: _ice,
+        labelOf: (level) => level,
+        onSelected: (level) => setState(() => _ice = level),
+      ),
+      const SizedBox(height: 12),
+
       // ===== Ghi chú =====
       SectionCard(
         title: 'Ghi chú',
@@ -174,7 +224,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: TextField(
             controller: _noteController,
             decoration: const InputDecoration(
-              hintText: 'VD: ít đá, ít ngọt...',
+              hintText: 'VD: thêm sữa, ống hút giấy...',
               prefixIcon: Icon(Icons.edit_note),
             ),
           ),

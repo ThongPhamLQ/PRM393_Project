@@ -153,9 +153,12 @@ class OrderProvider extends ChangeNotifier {
     final orderItems = cartItems
         .map(
           (c) => OrderItem(
+            productId: c.product.id,
             productName: c.product.name,
             size: c.size,
             toppings: c.toppingNames,
+            sugar: c.sugar,
+            ice: c.ice,
             note: c.note,
             quantity: c.quantity,
             unitPrice: c.unitPrice,
