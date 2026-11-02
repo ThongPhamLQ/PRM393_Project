@@ -44,6 +44,17 @@ class MenuScreen extends StatelessWidget {
     if (menu.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    // Lỗi và chưa có món nào để hiện -> màn lỗi có nút Thử lại
+    final loadError = menu.loadError;
+    if (loadError != null && menu.products.isEmpty) {
+      return Scaffold(
+        body: EmptyView(
+          icon: Icons.cloud_off,
+          message: loadError,
+          onRetry: menu.loadMenu,
+        ),
+      );
+    }
 
     // Tiêu đề mục: danh mục đang chọn, hoặc "Tất cả món"
     final selectedId = menu.selectedCategoryId;
@@ -172,12 +183,22 @@ class MenuScreen extends StatelessWidget {
 
               // Lưới các món
               if (products.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   hasScrollBody: false,
-                  child: EmptyView(
-                    icon: Icons.search_off,
-                    message: 'Không tìm thấy món nào',
-                  ),
+                  // Nói rõ vì sao trống: không khớp từ khóa hay danh mục chưa có món
+                  child: menu.searchText.trim().isNotEmpty
+                      ? EmptyView(
+                          icon: Icons.search_off,
+                          message:
+                              'Không có món nào khớp “${menu.searchText.trim()}”.\n'
+                              'Thử từ khóa ngắn hơn, VD: “tra sua”.',
+                        )
+                      : EmptyView(
+                          icon: Icons.local_cafe_outlined,
+                          message: selectedId == null
+                              ? 'Quán chưa có món nào đang bán'
+                              : 'Danh mục này chưa có món',
+                        ),
                 )
               else
                 SliverPadding(

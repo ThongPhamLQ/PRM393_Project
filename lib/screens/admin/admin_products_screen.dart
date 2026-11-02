@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/product_management_provider.dart';
 import '../../repositories/product_management_repository.dart';
+import '../../utils/text_search.dart';
 import 'admin_product_editor_screen.dart';
 
 /// Opened from the existing AdminOrdersScreen Column; owns its provider.
@@ -254,7 +255,7 @@ class _AdminProductsBodyState extends State<_AdminProductsBody> {
     final visible = (_showTrash ? manager.deletedProducts : manager.products)
         .where(
           (p) =>
-              p.name.toLowerCase().contains(_search.toLowerCase()) &&
+              matchesSearch(p.name, _search) && // không phân biệt dấu
               (_filter == null || p.status == _filter),
         )
         .toList();

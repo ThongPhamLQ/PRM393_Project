@@ -86,14 +86,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _load,
-        child: notifications.isEmpty
+        child: notifications.isEmpty && provider.isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : notifications.isEmpty
+            // Bọc ListView để vẫn kéo xuống làm mới được
             ? ListView(
-                children: const [
-                  SizedBox(height: 120),
-                  EmptyView(
-                    icon: Icons.notifications_none,
-                    message: 'Chưa có thông báo nào',
-                  ),
+                children: [
+                  const SizedBox(height: 120),
+                  provider.loadError != null
+                      ? EmptyView(
+                          icon: Icons.cloud_off,
+                          message: provider.loadError!,
+                          onRetry: _load,
+                        )
+                      : const EmptyView(
+                          icon: Icons.notifications_none,
+                          message: 'Chưa có thông báo nào',
+                        ),
                 ],
               )
             : MaxWidthBox(

@@ -17,24 +17,42 @@ class ChatProvider extends ChangeNotifier {
   List<Conversation> _conversations =
       []; // danh sách cuộc trò chuyện (chủ quán)
 
+  // Đang tải / lỗi của từng danh sách -> màn hình phân biệt "đang tải", "lỗi" và "trống"
+  bool _messagesLoading = false;
+  String? _messagesError;
+  bool _conversationsLoading = false;
+  String? _conversationsError;
+
   List<ChatMessage> get messages => _messages;
   List<Conversation> get conversations => _conversations;
+  bool get messagesLoading => _messagesLoading;
+  String? get messagesError => _messagesError;
+  bool get conversationsLoading => _conversationsLoading;
+  String? get conversationsError => _conversationsError;
 
   Future<void> loadMessages(String customerId) {
     _messagesSub?.cancel();
     if (_openCustomerId != customerId) _messages = []; // không lẫn tin của khách trước
     _openCustomerId = customerId;
+    _messagesLoading = true;
+    _messagesError = null;
+    notifyListeners();
     final firstData = Completer<void>();
     _messagesSub = _chatRepo
         .watchMessages(customerId)
         .listen(
           (messages) {
             _messages = messages;
+            _messagesLoading = false;
+            _messagesError = null;
             notifyListeners();
             if (!firstData.isCompleted) firstData.complete();
           },
           onError: (Object e) {
             debugPrint('Messages stream failed: $e');
+            _messagesLoading = false;
+            _messagesError = 'Không tải được tin nhắn. Vui lòng thử lại.';
+            notifyListeners();
             if (!firstData.isCompleted) firstData.complete();
           },
         );
@@ -47,6 +65,8 @@ class ChatProvider extends ChangeNotifier {
     _messagesSub = null;
     _openCustomerId = null;
     _messages = [];
+    _messagesLoading = false;
+    _messagesError = null;
   }
 
   // sender: 'customer' (khách gửi) hoặc 'shop' (chủ quán trả lời).
@@ -71,15 +91,23 @@ class ChatProvider extends ChangeNotifier {
 
   Future<void> loadConversations() {
     _conversationsSub?.cancel();
+    _conversationsLoading = true;
+    _conversationsError = null;
+    notifyListeners();
     final firstData = Completer<void>();
     _conversationsSub = _chatRepo.watchConversations().listen(
       (conversations) {
         _conversations = conversations;
+        _conversationsLoading = false;
+        _conversationsError = null;
         notifyListeners();
         if (!firstData.isCompleted) firstData.complete();
       },
       onError: (Object e) {
         debugPrint('Conversations stream failed: $e');
+        _conversationsLoading = false;
+        _conversationsError = 'Không tải được danh sách tin nhắn. Vui lòng thử lại.';
+        notifyListeners();
         if (!firstData.isCompleted) firstData.complete();
       },
     );
@@ -92,6 +120,8 @@ class ChatProvider extends ChangeNotifier {
     _conversationsSub?.cancel();
     _conversationsSub = null;
     _conversations = [];
+    _conversationsLoading = false;
+    _conversationsError = null;
     notifyListeners();
   }
 }

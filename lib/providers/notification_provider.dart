@@ -15,8 +15,12 @@ class NotificationProvider extends ChangeNotifier {
   String? _userId; // đang nghe thông báo của ai
 
   List<AppNotification> _notifications = [];
+  bool _isLoading = false;
+  String? _loadError;
 
   List<AppNotification> get notifications => _notifications;
+  bool get isLoading => _isLoading;
+  String? get loadError => _loadError;
 
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
@@ -25,6 +29,9 @@ class NotificationProvider extends ChangeNotifier {
     if (_userId == userId && _subscription != null) return Future.value();
     _subscription?.cancel();
     _userId = userId;
+    _isLoading = true;
+    _loadError = null;
+    notifyListeners();
 
     final firstData = Completer<void>();
     Set<String>? knownIds; // null = chưa nhận lần đầu
@@ -42,11 +49,18 @@ class NotificationProvider extends ChangeNotifier {
             }
             knownIds = {for (final n in list) n.id!};
             _notifications = list;
+            _isLoading = false;
+            _loadError = null;
             notifyListeners();
             if (!firstData.isCompleted) firstData.complete();
           },
           onError: (Object e) {
             debugPrint('Notifications stream failed: $e');
+            // Bỏ subscription lỗi -> lần gọi sau (bấm Thử lại) nghe lại được
+            _subscription = null;
+            _isLoading = false;
+            _loadError = 'Không tải được thông báo. Vui lòng thử lại.';
+            notifyListeners();
             if (!firstData.isCompleted) firstData.complete();
           },
         );
@@ -66,6 +80,8 @@ class NotificationProvider extends ChangeNotifier {
     _subscription = null;
     _userId = null;
     _notifications = [];
+    _isLoading = false;
+    _loadError = null;
     notifyListeners();
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/product.dart';
 import '../repositories/menu_repository.dart';
+import '../utils/text_search.dart';
 
 // Quản lý menu: danh mục, món, topping, lọc theo danh mục + tìm kiếm.
 // Nghe 3 Stream từ Firestore: chủ quán đổi menu thì máy khách tự cập nhật.
@@ -17,21 +18,23 @@ class MenuProvider extends ChangeNotifier {
   int? _selectedCategoryId; // null = "Tất cả"
   String _searchText = '';
   bool _isLoading = false;
+  String? _loadError;
 
   List<MenuCategory> get categories => _categories;
+  List<Product> get products => _products; // tất cả món đang bán (chưa lọc)
   List<Topping> get toppings => _toppings;
   int? get selectedCategoryId => _selectedCategoryId;
   String get searchText => _searchText;
   bool get isLoading => _isLoading;
+  String? get loadError => _loadError;
 
   // Danh sách món sau khi lọc theo danh mục và từ khóa tìm kiếm
   List<Product> get filteredProducts {
     return _products.where((p) {
       final matchCategory =
           _selectedCategoryId == null || p.categoryId == _selectedCategoryId;
-      final matchSearch = p.name.toLowerCase().contains(
-        _searchText.toLowerCase(),
-      );
+      // Không phân biệt dấu: gõ "tra sua" vẫn ra "Trà sữa"
+      final matchSearch = matchesSearch(p.name, _searchText);
       return matchCategory && matchSearch;
     }).toList();
   }
@@ -40,6 +43,7 @@ class MenuProvider extends ChangeNotifier {
   Future<void> loadMenu() {
     _cancel();
     _isLoading = true;
+    _loadError = null;
     notifyListeners();
 
     final received = <String>{};
@@ -58,6 +62,7 @@ class MenuProvider extends ChangeNotifier {
 
     void onError(Object e) {
       debugPrint('Menu stream failed: $e');
+      _loadError = 'Không tải được menu. Kiểm tra kết nối mạng rồi thử lại.';
       finishLoading();
       notifyListeners();
     }

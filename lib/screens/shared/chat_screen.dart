@@ -80,7 +80,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messages = context.watch<ChatProvider>().messages;
+    final chat = context.watch<ChatProvider>();
+    final messages = chat.messages;
+    final error = chat.messagesError;
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
@@ -89,7 +91,15 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           children: [
             Expanded(
-              child: messages.isEmpty
+              child: messages.isEmpty && chat.messagesLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : messages.isEmpty && error != null
+                  ? EmptyView(
+                      icon: Icons.cloud_off,
+                      message: error,
+                      onRetry: () => _chat.loadMessages(widget.customerId),
+                    )
+                  : messages.isEmpty
                   ? EmptyView(
                       icon: Icons.chat_bubble_outline,
                       message: widget.isShop
