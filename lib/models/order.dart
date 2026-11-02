@@ -37,6 +37,9 @@ enum OrderStatus {
         return null;
     }
   }
+
+  // Đơn còn đang chạy (chưa hoàn thành / chưa hủy) -> hiện thẻ theo dõi ở Menu
+  bool get isActive => next != null;
 }
 
 // Phương thức thanh toán (online chỉ là giả lập)

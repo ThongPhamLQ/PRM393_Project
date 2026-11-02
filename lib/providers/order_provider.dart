@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart' show FirebaseFirestore;
 import 'package:flutter/foundation.dart';
 
 import '../models/app_notification.dart';
@@ -9,12 +10,21 @@ import '../models/user.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/order_repository.dart';
 import '../repositories/product_management_repository.dart';
+import '../services/notification_service.dart';
+import '../utils/format.dart';
 
 // Quản lý đơn hàng: đặt hàng, lịch sử đơn, chủ quán cập nhật trạng thái.
 // Danh sách đơn nghe Stream từ Firestore nên tự cập nhật khi máy khác thay đổi.
 class OrderProvider extends ChangeNotifier {
-  final _orderRepo = OrderRepository();
-  final _notificationRepo = NotificationRepository();
+  // db: test truyền FakeFirebaseFirestore vào; app thật để trống (dùng Firestore thật)
+  OrderProvider({FirebaseFirestore? db})
+    : _orderRepo = OrderRepository(db: db),
+      _notificationRepo = NotificationRepository(db: db),
+      _productRepo = ProductManagementRepository(db: db);
+
+  final OrderRepository _orderRepo;
+  final NotificationRepository _notificationRepo;
+  final ProductManagementRepository _productRepo;
   StreamSubscription<List<Order>>? _subscription;
 
   List<Order> _orders = [];
@@ -35,17 +45,47 @@ class OrderProvider extends ChangeNotifier {
   Future<void> loadAllOrders() => _listen(
     _orderRepo.watchAllOrders(),
     'Không thể tải danh sách đơn. Vui lòng thử lại.',
+    alertNewOrders: true,
   );
+
+  // Các đơn "Chờ xác nhận" mới xuất hiện so với lần nghe trước.
+  // knownIds == null: lần nhận dữ liệu đầu tiên -> không báo các đơn đã có sẵn.
+  static List<Order> newPendingOrders(Set<int>? knownIds, List<Order> orders) {
+    if (knownIds == null) return [];
+    return orders
+        .where(
+          (o) =>
+              o.status == OrderStatus.pending &&
+              o.id != null &&
+              !knownIds.contains(o.id),
+        )
+        .toList();
+  }
 
   // Nghe Stream: mỗi lần Firestore báo thay đổi thì thay danh sách + notifyListeners.
   // Future xong khi có dữ liệu lần đầu (để RefreshIndicator biết lúc tắt vòng xoay).
-  Future<void> _listen(Stream<List<Order>> stream, String errorMessage) {
+  // alertNewOrders: màn chủ quán -> có đơn mới thì hiện thông báo hệ thống.
+  Future<void> _listen(
+    Stream<List<Order>> stream,
+    String errorMessage, {
+    bool alertNewOrders = false,
+  }) {
     _subscription?.cancel();
     _isLoading = true;
     notifyListeners();
     final firstData = Completer<void>();
+    Set<int>? knownIds; // mã các đơn đã thấy, null = chưa nhận lần nào
     _subscription = stream.listen(
       (orders) {
+        if (alertNewOrders) {
+          for (final o in newPendingOrders(knownIds, orders)) {
+            NotificationService.instance.show(
+              'Đơn mới #${o.id}',
+              '${o.customerName} · ${formatVnd(o.totalPrice)}',
+            );
+          }
+          knownIds = orders.map((o) => o.id).whereType<int>().toSet();
+        }
         _orders = orders;
         _loadError = null;
         _isLoading = false;
@@ -69,6 +109,15 @@ class OrderProvider extends ChangeNotifier {
 
   Future<Order?> getOrderById(int orderId) => _orderRepo.getOrderById(orderId);
 
+  // Tìm đơn để mở chi tiết (từ thông báo / màn đặt hàng thành công):
+  // có sẵn trong danh sách đang nghe thì dùng luôn, không thì đọc từ Firestore.
+  Future<Order?> findOrder(int orderId) async {
+    for (final o in _orders) {
+      if (o.id == orderId) return o;
+    }
+    return _orderRepo.getOrderById(orderId);
+  }
+
   // Đặt hàng từ giỏ hàng. Trả về mã đơn vừa tạo.
   Future<int> placeOrder({
     required User user,
@@ -83,7 +132,7 @@ class OrderProvider extends ChangeNotifier {
         cartItems.any((item) => item.quantity <= 0 || item.unitPrice < 0)) {
       throw StateError('Giỏ hàng hoặc người dùng không hợp lệ.');
     }
-    await ProductManagementRepository().assertCartSellable(cartItems);
+    await _productRepo.assertCartSellable(cartItems);
     final total = cartItems.fold<int>(0, (sum, item) => sum + item.totalPrice);
     if (total <= 0) throw StateError('Tổng tiền đơn hàng không hợp lệ.');
 
@@ -119,6 +168,7 @@ class OrderProvider extends ChangeNotifier {
       user.id,
       'Đặt hàng thành công',
       'Đơn #$orderId: ${OrderStatus.pending.message}',
+      orderId: orderId,
     );
     return orderId;
   }
@@ -143,6 +193,7 @@ class OrderProvider extends ChangeNotifier {
       order.userId,
       'Đơn #${order.id}: ${newStatus.label}',
       newStatus.message,
+      orderId: order.id,
     );
   }
 
@@ -159,7 +210,13 @@ class OrderProvider extends ChangeNotifier {
   // collection này (NotificationProvider) nên tự hiện thông báo hệ thống,
   // kể cả khi chủ quán đổi trạng thái trên máy khác.
   // Thông báo là tác vụ phụ: nếu lỗi, đơn hàng vẫn đã được lưu.
-  Future<void> _notify(String userId, String title, String body) async {
+  // orderId: gắn mã đơn để bấm thông báo thì mở đúng đơn đó.
+  Future<void> _notify(
+    String userId,
+    String title,
+    String body, {
+    int? orderId,
+  }) async {
     try {
       await _notificationRepo.insert(
         AppNotification(
@@ -167,6 +224,7 @@ class OrderProvider extends ChangeNotifier {
           title: title,
           body: body,
           createdAt: DateTime.now(),
+          orderId: orderId,
         ),
       );
     } catch (e) {

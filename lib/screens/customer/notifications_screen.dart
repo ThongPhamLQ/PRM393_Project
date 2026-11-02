@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/app_notification.dart';
+import '../../models/order.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/order_provider.dart';
 import '../../utils/format.dart';
 import '../../widgets/empty_view.dart';
 import '../../widgets/max_width_box.dart';
+import '../shared/order_detail_screen.dart';
 
 // Tab Thông báo: các thông báo về trạng thái đơn hàng
 class NotificationsScreen extends StatefulWidget {
@@ -28,6 +32,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _load() async {
     if (!mounted) return;
     await context.read<NotificationProvider>().loadNotifications(_userId);
+  }
+
+  // Bấm thông báo: đánh dấu đã đọc; thông báo có gắn mã đơn thì mở chi tiết đơn đó
+  Future<void> _open(AppNotification n) async {
+    if (!n.isRead) {
+      context
+          .read<NotificationProvider>()
+          .markAsRead(n)
+          .catchError((Object e) => debugPrint('Mark as read failed: $e'));
+    }
+    final orderId = n.orderId;
+    if (orderId == null) return; // thông báo cũ chưa gắn mã đơn
+    final orderProvider = context.read<OrderProvider>();
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    Order? order;
+    try {
+      order = await orderProvider.findOrder(orderId);
+    } catch (e) {
+      debugPrint('Find order #$orderId failed: $e');
+    }
+    if (!mounted) return;
+    if (order == null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Không mở được đơn #$orderId. Vui lòng thử lại.')),
+      );
+      return;
+    }
+    final found = order;
+    navigator.push(
+      MaterialPageRoute(builder: (_) => OrderDetailScreen(order: found)),
+    );
   }
 
   @override
@@ -91,7 +127,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         subtitle:
                             Text('${n.body}\n${formatDateTime(n.createdAt)}'),
                         isThreeLine: true,
-                        onTap: n.isRead ? null : () => provider.markAsRead(n),
+                        // Có mã đơn -> mũi tên báo là bấm vào mở được đơn
+                        trailing: n.orderId == null
+                            ? null
+                            : const Icon(Icons.chevron_right),
+                        onTap: n.isRead && n.orderId == null
+                            ? null
+                            : () => _open(n),
                       ),
                     );
                   },

@@ -1,16 +1,20 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/menu_provider.dart';
+import '../../providers/order_provider.dart';
 import '../../utils/constants.dart';
+import '../../widgets/active_order_card.dart';
 import '../../widgets/brand_block.dart';
 import '../../widgets/cart_button.dart';
 import '../../widgets/empty_view.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/section_card.dart';
+import '../shared/order_detail_screen.dart';
 import 'product_detail_screen.dart';
 
 // Tab Menu: khối nâu (lời chào + giỏ hàng + tìm kiếm) + banner + chip danh mục
@@ -25,6 +29,11 @@ class MenuScreen extends StatelessWidget {
     // select: chỉ build lại khi tên người dùng đổi (sau khi sửa thông tin)
     final userName = context.select<AuthProvider, String>(
       (auth) => auth.currentUser?.name ?? '',
+    );
+    // Đơn mới nhất còn đang chạy (danh sách đã sắp mới nhất lên đầu).
+    // select: chỉ build lại khi đơn này hoặc trạng thái của nó đổi
+    final activeOrder = context.select<OrderProvider, Order?>(
+      (p) => p.orders.where((o) => o.status.isActive).firstOrNull,
     );
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -103,6 +112,22 @@ class MenuScreen extends StatelessWidget {
                   ),
                 ),
               ),
+
+              if (activeOrder != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: ActiveOrderCard(
+                      order: activeOrder,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => OrderDetailScreen(order: activeOrder),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
 
               const SliverToBoxAdapter(child: _MenuBanner()),
 

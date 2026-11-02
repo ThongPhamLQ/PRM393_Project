@@ -10,6 +10,8 @@ class AppNotification {
   final String body;
   final bool isRead;
   final DateTime createdAt;
+  // Thông báo về đơn nào (bấm vào thì mở đúng đơn). Thông báo cũ không có -> null
+  final int? orderId;
 
   AppNotification({
     this.id,
@@ -18,6 +20,7 @@ class AppNotification {
     required this.body,
     this.isRead = false,
     required this.createdAt,
+    this.orderId,
   });
 
   // userId là tên document cha nên không cần lưu lại
@@ -27,6 +30,7 @@ class AppNotification {
       'body': body,
       'isRead': isRead,
       'createdAt': Timestamp.fromDate(createdAt),
+      'orderId': ?orderId, // null thì không ghi field này
     };
   }
 
@@ -42,6 +46,7 @@ class AppNotification {
       body: map['body'] as String,
       isRead: map['isRead'] == true,
       createdAt: readDate(map['createdAt']),
+      orderId: (map['orderId'] as num?)?.toInt(),
     );
   }
 }

@@ -14,6 +14,7 @@ import '../../widgets/max_width_box.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/total_bar.dart';
+import 'order_success_screen.dart';
 
 // Đặt hàng: nhập thông tin nhận hàng + chọn cách thanh toán
 class CheckoutScreen extends StatefulWidget {
@@ -102,26 +103,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       cart.clear(); // Không thể gửi lại đơn vì lỗi thông báo hoặc đóng dialog.
       // Badge thông báo tự tăng: NotificationProvider đang nghe Firestore
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          icon: const Icon(Icons.check_circle, color: Colors.green, size: 64),
-          title: const Text('Đặt hàng thành công!'),
-          content: Text(
-            'Mã đơn hàng: #$orderId\n'
-            'Bạn có thể theo dõi trạng thái ở tab "Đơn hàng".',
-            textAlign: TextAlign.center,
+      // Sang màn thành công, bỏ Giỏ hàng + Đặt hàng khỏi ngăn xếp:
+      // bấm quay lại từ màn thành công là về thẳng Menu
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OrderSuccessScreen(
+            orderId: orderId,
+            total: amount,
+            paymentMethod: paymentMethod,
           ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('OK'),
-            ),
-          ],
         ),
+        (route) => route.isFirst,
       );
-      if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
     } catch (e) {
       debugPrint('Checkout failed: $e');
       if (mounted) {
