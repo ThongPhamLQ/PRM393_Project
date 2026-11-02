@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../models/app_notification.dart';
@@ -6,13 +8,14 @@ import '../models/order.dart';
 import '../models/user.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/order_repository.dart';
-import '../services/notification_service.dart';
 import '../repositories/product_management_repository.dart';
 
-// Quản lý đơn hàng: đặt hàng, lịch sử đơn, chủ quán cập nhật trạng thái
+// Quản lý đơn hàng: đặt hàng, lịch sử đơn, chủ quán cập nhật trạng thái.
+// Danh sách đơn nghe Stream từ Firestore nên tự cập nhật khi máy khác thay đổi.
 class OrderProvider extends ChangeNotifier {
   final _orderRepo = OrderRepository();
   final _notificationRepo = NotificationRepository();
+  StreamSubscription<List<Order>>? _subscription;
 
   List<Order> _orders = [];
   bool _isLoading = false;
@@ -22,36 +25,42 @@ class OrderProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get loadError => _loadError;
 
-  // Khách hàng: chỉ lấy đơn của mình
-  Future<void> loadMyOrders(int userId) async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      _orders = await _orderRepo.getOrdersByUser(userId);
-      _loadError = null;
-    } catch (e) {
-      _loadError = 'Không thể tải lịch sử đơn hàng. Vui lòng thử lại.';
-      debugPrint('loadMyOrders failed: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
+  // Khách hàng: chỉ nghe đơn của mình
+  Future<void> loadMyOrders(String userId) => _listen(
+    _orderRepo.watchOrdersByUser(userId),
+    'Không thể tải lịch sử đơn hàng. Vui lòng thử lại.',
+  );
 
-  // Chủ quán: lấy tất cả đơn
-  Future<void> loadAllOrders() async {
+  // Chủ quán: nghe tất cả đơn (khách đặt đơn mới là hiện ngay)
+  Future<void> loadAllOrders() => _listen(
+    _orderRepo.watchAllOrders(),
+    'Không thể tải danh sách đơn. Vui lòng thử lại.',
+  );
+
+  // Nghe Stream: mỗi lần Firestore báo thay đổi thì thay danh sách + notifyListeners.
+  // Future xong khi có dữ liệu lần đầu (để RefreshIndicator biết lúc tắt vòng xoay).
+  Future<void> _listen(Stream<List<Order>> stream, String errorMessage) {
+    _subscription?.cancel();
     _isLoading = true;
     notifyListeners();
-    try {
-      _orders = await _orderRepo.getAllOrders();
-      _loadError = null;
-    } catch (e) {
-      _loadError = 'Không thể tải danh sách đơn. Vui lòng thử lại.';
-      debugPrint('loadAllOrders failed: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    final firstData = Completer<void>();
+    _subscription = stream.listen(
+      (orders) {
+        _orders = orders;
+        _loadError = null;
+        _isLoading = false;
+        notifyListeners();
+        if (!firstData.isCompleted) firstData.complete();
+      },
+      onError: (Object e) {
+        _loadError = errorMessage;
+        _isLoading = false;
+        debugPrint('Orders stream failed: $e');
+        notifyListeners();
+        if (!firstData.isCompleted) firstData.complete();
+      },
+    );
+    return firstData.future;
   }
 
   Future<List<OrderItem>> getOrderItems(int orderId) {
@@ -70,8 +79,7 @@ class OrderProvider extends ChangeNotifier {
     required String note,
     required PaymentMethod paymentMethod,
   }) async {
-    if (user.id == null ||
-        cartItems.isEmpty ||
+    if (cartItems.isEmpty ||
         cartItems.any((item) => item.quantity <= 0 || item.unitPrice < 0)) {
       throw StateError('Giỏ hàng hoặc người dùng không hợp lệ.');
     }
@@ -80,7 +88,7 @@ class OrderProvider extends ChangeNotifier {
     if (total <= 0) throw StateError('Tổng tiền đơn hàng không hợp lệ.');
 
     final order = Order(
-      userId: user.id!,
+      userId: user.id,
       customerName: customerName,
       phone: phone,
       address: address,
@@ -108,10 +116,9 @@ class OrderProvider extends ChangeNotifier {
 
     final orderId = await _orderRepo.createOrder(order, orderItems);
     await _notify(
-      user.id!,
+      user.id,
       'Đặt hàng thành công',
       'Đơn #$orderId: ${OrderStatus.pending.message}',
-      showLocalNotification: true, // Khách tự tạo đơn trên thiết bị này.
     );
     return orderId;
   }
@@ -125,14 +132,13 @@ class OrderProvider extends ChangeNotifier {
       expectedStatus: order.status,
     );
 
-    // Đơn đã được lưu: cập nhật danh sách trước khi ghi thông báo.
+    // Đơn đã được lưu: cập nhật danh sách ngay, không chờ Stream báo về
     final index = _orders.indexWhere((o) => o.id == order.id);
     if (index != -1) {
       _orders[index] = order.copyWith(status: newStatus);
     }
     notifyListeners();
 
-    // Chỉ ghi lịch sử thông báo, không phát local notification trên máy Admin.
     await _notify(
       order.userId,
       'Đơn #${order.id}: ${newStatus.label}',
@@ -140,23 +146,20 @@ class OrderProvider extends ChangeNotifier {
     );
   }
 
-  // Gọi khi đăng xuất
+  // Gọi khi đăng xuất: ngừng nghe Firestore trước khi mất quyền đọc
   void clear() {
+    _subscription?.cancel();
+    _subscription = null;
     _orders = [];
     _loadError = null;
     notifyListeners();
   }
 
-  // Lưu thông báo vào database (để xem ở màn Thông báo)
-  // + hiện thông báo hệ thống trên điện thoại
+  // Lưu thông báo vào users/{userId}/notifications. Máy của khách đang nghe
+  // collection này (NotificationProvider) nên tự hiện thông báo hệ thống,
+  // kể cả khi chủ quán đổi trạng thái trên máy khác.
   // Thông báo là tác vụ phụ: nếu lỗi, đơn hàng vẫn đã được lưu.
-  // Không gửi local notification từ máy Admin sang máy khách.
-  Future<void> _notify(
-    int userId,
-    String title,
-    String body, {
-    bool showLocalNotification = false,
-  }) async {
+  Future<void> _notify(String userId, String title, String body) async {
     try {
       await _notificationRepo.insert(
         AppNotification(
@@ -168,14 +171,6 @@ class OrderProvider extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('Saving in-app notification failed: $e');
-    }
-    if (showLocalNotification) {
-      try {
-        await NotificationService.instance.show(title, body);
-      } catch (e) {
-        // Không báo "đặt hàng thất bại" khi SQLite đã lưu đơn thành công.
-        debugPrint('Showing local notification failed: $e');
-      }
     }
   }
 }

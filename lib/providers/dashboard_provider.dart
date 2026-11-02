@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/dashboard_stats.dart';
 import '../repositories/dashboard_repository.dart';
 
-/// Loads Dashboard statistics from SQLite. The widget owns this provider.
+/// Loads Dashboard statistics from Firestore. The widget owns this provider.
 class DashboardProvider extends ChangeNotifier {
   final DashboardRepository _repository;
 

@@ -37,7 +37,7 @@ class StoreScreen extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) =>
-            ChatScreen(customerId: user.id!, title: shopName, isShop: false),
+            ChatScreen(customerId: user.id, title: shopName, isShop: false),
       ),
     );
   }

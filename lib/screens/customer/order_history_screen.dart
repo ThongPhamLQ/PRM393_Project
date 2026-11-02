@@ -17,12 +17,12 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  late final int _userId;
+  late final String _userId;
 
   @override
   void initState() {
     super.initState();
-    _userId = context.read<AuthProvider>().currentUser!.id!;
+    _userId = context.read<AuthProvider>().currentUser!.id;
     Future.microtask(_loadOrders); // tải dữ liệu sau khi build xong
   }
 

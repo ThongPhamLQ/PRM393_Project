@@ -1,0 +1,93 @@
+rules_version = '2';
+
+// Firestore Security Rules: server của Firebase kiểm tra từng lần đọc/ghi.
+// App có bị sửa code thì cũng không vượt được các luật này.
+// Deploy: firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Chủ quán = tài khoản admin@cafe.com (đã tạo sẵn nên không ai đăng ký trùng được).
+    // Đổi email chủ quán thì sửa cả adminEmail trong lib/utils/constants.dart.
+    function isAdmin() {
+      return signedIn() && request.auth.token.email == 'admin@cafe.com';
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Chỉ sửa đúng các trường cho phép
+    function onlyChanges(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    // Hồ sơ người dùng: tự tạo / sửa tên + SĐT của mình, không tự nâng vai trò
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create: if isSelf(uid)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == (isAdmin() ? 'admin' : 'customer');
+      allow update: if isSelf(uid) && onlyChanges(['name', 'phone']);
+
+      // Thông báo: khách tự ghi (đặt / hủy đơn), chủ quán ghi khi đổi trạng thái đơn
+      match /notifications/{notificationId} {
+        allow read: if isSelf(uid);
+        allow create: if isSelf(uid) || isAdmin();
+        allow update: if isSelf(uid) && onlyChanges(['isRead']);
+      }
+    }
+
+    // Menu: ai đăng nhập cũng xem được, chỉ chủ quán thêm / sửa / xóa
+    match /categories/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /products/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /toppings/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Bộ đếm cấp mã số. Khách chỉ được tăng bộ đếm đơn hàng thêm đúng 1
+    match /counters/{name} {
+      allow read: if signedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin()
+        || (signedIn() && name == 'orders'
+            && request.resource.data.value == resource.data.value + 1);
+    }
+
+    // Đơn hàng: khách chỉ thấy và tạo đơn của chính mình
+    match /orders/{orderId} {
+      allow read: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      // Chủ quán đổi trạng thái; khách chỉ được hủy đơn còn "Chờ xác nhận"
+      allow update: if onlyChanges(['status'])
+        && (isAdmin()
+            || (signedIn() && resource.data.userId == request.auth.uid
+                && resource.data.status == 'pending'
+                && request.resource.data.status == 'cancelled'));
+    }
+
+    // Chat: chats/{uid của khách} chỉ khách đó và chủ quán đọc / ghi
+    match /chats/{customerId} {
+      allow read, write: if isSelf(customerId) || isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isSelf(customerId) || isAdmin();
+        allow create: if (isSelf(customerId) && request.resource.data.sender == 'customer')
+          || (isAdmin() && request.resource.data.sender == 'shop');
+      }
+    }
+  }
+}

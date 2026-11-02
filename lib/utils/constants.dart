@@ -20,6 +20,10 @@ const Map<String, int> sizePrices = {'S': 0, 'M': 6000, 'L': 10000};
 const String roleCustomer = 'customer';
 const String roleAdmin = 'admin';
 
+// Tài khoản chủ quán. Firestore Security Rules (firestore.rules) cũng dùng đúng
+// email này để chỉ cho chủ quán sửa menu và đổi trạng thái đơn -> đổi thì sửa cả 2 nơi.
+const String adminEmail = 'admin@cafe.com';
+
 // ===== Người gửi tin nhắn =====
 const String senderCustomer = 'customer';
 const String senderShop = 'shop';

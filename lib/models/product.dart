@@ -1,3 +1,6 @@
+// Số trong Firestore có thể về dạng int hoặc double (nhất là bản web) -> đổi về int
+int _toInt(Object? value) => (value as num).toInt();
+
 // Danh mục món: Cà phê, Trà sữa, ...
 // (Đặt tên MenuCategory để không trùng với class Category có sẵn của Flutter)
 class MenuCategory {
@@ -7,7 +10,7 @@ class MenuCategory {
   MenuCategory({required this.id, required this.name});
 
   factory MenuCategory.fromMap(Map<String, dynamic> map) {
-    return MenuCategory(id: map['id'] as int, name: map['name'] as String);
+    return MenuCategory(id: _toInt(map['id']), name: map['name'] as String);
   }
 }
 
@@ -31,11 +34,11 @@ class Product {
 
   factory Product.fromMap(Map<String, dynamic> map) {
     return Product(
-      id: map['id'] as int,
-      categoryId: map['categoryId'] as int,
+      id: _toInt(map['id']),
+      categoryId: _toInt(map['categoryId']),
       name: map['name'] as String,
-      description: map['description'] as String,
-      price: map['price'] as int,
+      description: (map['description'] as String?) ?? '',
+      price: _toInt(map['price']),
       imageUrl: (map['imageUrl'] as String?) ?? '',
     );
   }
@@ -51,9 +54,9 @@ class Topping {
 
   factory Topping.fromMap(Map<String, dynamic> map) {
     return Topping(
-      id: map['id'] as int,
+      id: _toInt(map['id']),
       name: map['name'] as String,
-      price: map['price'] as int,
+      price: _toInt(map['price']),
     );
   }
 }

@@ -1,12 +1,20 @@
-import '../data/database_helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
+
+import '../data/firestore_db.dart';
 import '../models/order.dart';
 
-// Đọc/ghi bảng orders và order_items
+// Đọc/ghi collection orders. Mỗi đơn là 1 document, các món nằm trong mảng items.
 class OrderRepository {
-  final _dbHelper = DatabaseHelper.instance;
+  OrderRepository({FirebaseFirestore? db}) : _dbOverride = db;
+  final FirebaseFirestore? _dbOverride;
+  // Lấy instance khi dùng: kiểm tra dữ liệu sai thì báo lỗi luôn, không cần Firebase
+  FirebaseFirestore get _db => _dbOverride ?? FirebaseFirestore.instance;
+
+  CollectionReference<Map<String, dynamic>> get _orders =>
+      _db.collection(Collections.orders);
 
   // Lưu đơn hàng + các món trong đơn.
-  // Dùng transaction: nếu lỗi giữa chừng thì không lưu gì cả.
+  // Dùng transaction: cấp mã đơn và lưu đơn cùng lúc, lỗi giữa chừng thì không lưu gì.
   Future<int> createOrder(Order order, List<OrderItem> items) async {
     if (items.isEmpty ||
         items.any((item) => item.quantity <= 0 || item.unitPrice < 0)) {
@@ -19,61 +27,44 @@ class OrderRepository {
     if (calculatedTotal <= 0 || calculatedTotal != order.totalPrice) {
       throw StateError('Tổng tiền và chi tiết đơn hàng không khớp.');
     }
-    final db = await _dbHelper.database;
-    return db.transaction((txn) async {
-      final orderId = await txn.insert('orders', order.toMap()..remove('id'));
-      for (final item in items) {
-        final map = item.toMap()
-          ..remove('id')
-          ..['orderId'] = orderId;
-        await txn.insert('order_items', map);
-      }
+    return _db.runTransaction((txn) async {
+      final orderId = await nextId(txn, _db, Collections.orders);
+      txn.set(_orders.doc('$orderId'), {
+        ...order.toMap(),
+        'id': orderId,
+        'items': items.map((item) => item.toMap()).toList(),
+      });
       return orderId;
     });
   }
 
-  // Đơn hàng của 1 khách (mới nhất lên đầu)
-  Future<List<Order>> getOrdersByUser(int userId) async {
-    final db = await _dbHelper.database;
-    final rows = await db.query(
-      'orders',
-      where: 'userId = ?',
-      whereArgs: [userId],
-      orderBy: 'id DESC',
-    );
-    return rows.map((row) => Order.fromMap(row)).toList();
-  }
+  static List<Order> _toOrders(QuerySnapshot<Map<String, dynamic>> snap) =>
+      snap.docs.map((d) => Order.fromMap(d.data())).toList()
+        ..sort((a, b) => b.id!.compareTo(a.id!)); // mới nhất lên đầu
 
-  // Tất cả đơn hàng (cho chủ quán)
-  Future<List<Order>> getAllOrders() async {
-    final db = await _dbHelper.database;
-    final rows = await db.query('orders', orderBy: 'id DESC');
-    return rows.map((row) => Order.fromMap(row)).toList();
-  }
+  // Đơn hàng của 1 khách. Stream: quán đổi trạng thái thì danh sách tự cập nhật.
+  // Sắp xếp ở máy để không phải tạo composite index (userId + id) trên Firestore.
+  Stream<List<Order>> watchOrdersByUser(String userId) =>
+      _orders.where('userId', isEqualTo: userId).snapshots().map(_toOrders);
+
+  // Tất cả đơn hàng (cho chủ quán): khách đặt đơn mới là hiện ngay
+  Stream<List<Order>> watchAllOrders() => _orders.snapshots().map(_toOrders);
 
   Future<List<OrderItem>> getOrderItems(int orderId) async {
-    final db = await _dbHelper.database;
-    final rows = await db.query(
-      'order_items',
-      where: 'orderId = ?',
-      whereArgs: [orderId],
-    );
-    return rows.map((row) => OrderItem.fromMap(row)).toList();
+    final doc = await _orders.doc('$orderId').get();
+    final items = (doc.data()?['items'] as List?) ?? const [];
+    return items
+        .map((m) => OrderItem.fromMap(Map<String, dynamic>.from(m as Map)))
+        .toList();
   }
 
   Future<Order?> getOrderById(int orderId) async {
-    final db = await _dbHelper.database;
-    final rows = await db.query(
-      'orders',
-      where: 'id = ?',
-      whereArgs: [orderId],
-      limit: 1,
-    );
-    return rows.isEmpty ? null : Order.fromMap(rows.first);
+    final data = (await _orders.doc('$orderId').get()).data();
+    return data == null ? null : Order.fromMap(data);
   }
 
-  // SQLite UPDATE là nguyên tử. Điều kiện status ngăn ghi đè bản cập nhật
-  // từ màn hình đang giữ trạng thái cũ (optimistic concurrency control).
+  // Transaction đọc lại trạng thái hiện tại trước khi ghi: máy khác vừa đổi
+  // trạng thái thì báo lỗi thay vì ghi đè (optimistic concurrency control).
   Future<void> updateStatus(
     int orderId,
     OrderStatus newStatus, {
@@ -84,17 +75,15 @@ class OrderRepository {
         'Không thể chuyển đơn từ ${expectedStatus.label} sang ${newStatus.label}.',
       );
     }
-    final db = await _dbHelper.database;
-    final changed = await db.update(
-      'orders',
-      {'status': newStatus.name},
-      where: 'id = ? AND status = ?',
-      whereArgs: [orderId, expectedStatus.name],
-    );
-    if (changed != 1) {
-      throw StateError(
-        'Đơn hàng đã thay đổi hoặc không còn tồn tại. Vui lòng tải lại.',
-      );
-    }
+    await _db.runTransaction((txn) async {
+      final ref = _orders.doc('$orderId');
+      final snap = await txn.get(ref);
+      if (snap.data()?['status'] != expectedStatus.name) {
+        throw StateError(
+          'Đơn hàng đã thay đổi hoặc không còn tồn tại. Vui lòng tải lại.',
+        );
+      }
+      txn.update(ref, {'status': newStatus.name});
+    });
   }
 }

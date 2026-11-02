@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/chat_message.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/format.dart';
@@ -13,7 +14,7 @@ import '../../widgets/max_width_box.dart';
 // - Khách hàng mở: isShop = false, tin của khách nằm bên phải
 // - Chủ quán mở:   isShop = true,  tin của quán nằm bên phải
 class ChatScreen extends StatefulWidget {
-  final int customerId; // cuộc trò chuyện của khách nào
+  final String customerId; // uid của khách: cuộc trò chuyện của khách nào
   final String title; // tên hiển thị trên AppBar
   final bool isShop;
 
@@ -30,6 +31,8 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
+  // Giữ lại để gọi trong dispose (lúc đó không được dùng context nữa)
+  late final ChatProvider _chat;
 
   // Người đang dùng màn hình này là ai
   String get _mySender => widget.isShop ? senderShop : senderCustomer;
@@ -37,14 +40,16 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _chat = context.read<ChatProvider>();
     Future.microtask(() {
       if (!mounted) return;
-      context.read<ChatProvider>().loadMessages(widget.customerId);
+      _chat.loadMessages(widget.customerId); // nghe tin nhắn realtime
     });
   }
 
   @override
   void dispose() {
+    _chat.closeMessages(); // rời màn chat thì ngừng nghe Firestore
     _messageController.dispose();
     super.dispose();
   }
@@ -53,11 +58,24 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     _messageController.clear();
-    await context.read<ChatProvider>().sendMessage(
-      customerId: widget.customerId,
-      sender: _mySender,
-      content: text,
-    );
+    try {
+      await _chat.sendMessage(
+        customerId: widget.customerId,
+        sender: _mySender,
+        content: text,
+        // Khách gửi thì kèm tên để chủ quán thấy trong danh sách tin nhắn
+        customerName: widget.isShop
+            ? null
+            : context.read<AuthProvider>().currentUser?.name,
+      );
+    } catch (e) {
+      debugPrint('Send message failed: $e');
+      if (!mounted) return;
+      _messageController.text = text; // trả lại nội dung để gửi lại
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không gửi được tin nhắn. Thử lại sau.')),
+      );
+    }
   }
 
   @override

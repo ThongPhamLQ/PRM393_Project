@@ -16,12 +16,12 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  late final int _userId;
+  late final String _userId;
 
   @override
   void initState() {
     super.initState();
-    _userId = context.read<AuthProvider>().currentUser!.id!;
+    _userId = context.read<AuthProvider>().currentUser!.id;
     Future.microtask(_load);
   }
 

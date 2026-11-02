@@ -141,7 +141,7 @@ class ProfileScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatScreen(
-                          customerId: user.id!,
+                          customerId: user.id,
                           title: shopName,
                           isShop: false,
                         ),

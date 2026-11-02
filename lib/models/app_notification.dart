@@ -1,7 +1,11 @@
-// Thông báo trong app (lưu vào SQLite để xem lại ở màn hình Thông báo)
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+
+import '../data/firestore_db.dart';
+
+// Thông báo trong app, lưu ở users/{userId}/notifications để xem lại ở màn Thông báo
 class AppNotification {
-  final int? id;
-  final int userId; // thông báo gửi cho user nào
+  final String? id; // id document do Firestore tự sinh, null khi chưa lưu
+  final String userId; // thông báo gửi cho user nào
   final String title;
   final String body;
   final bool isRead;
@@ -16,25 +20,28 @@ class AppNotification {
     required this.createdAt,
   });
 
+  // userId là tên document cha nên không cần lưu lại
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'userId': userId,
       'title': title,
       'body': body,
-      'isRead': isRead ? 1 : 0,
-      'createdAt': createdAt.toIso8601String(),
+      'isRead': isRead,
+      'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
-  factory AppNotification.fromMap(Map<String, dynamic> map) {
+  factory AppNotification.fromMap(
+    String id,
+    String userId,
+    Map<String, dynamic> map,
+  ) {
     return AppNotification(
-      id: map['id'] as int,
-      userId: map['userId'] as int,
+      id: id,
+      userId: userId,
       title: map['title'] as String,
       body: map['body'] as String,
-      isRead: map['isRead'] == 1,
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      isRead: map['isRead'] == true,
+      createdAt: readDate(map['createdAt']),
     );
   }
 }

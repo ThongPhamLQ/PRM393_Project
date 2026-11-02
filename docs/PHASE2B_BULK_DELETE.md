@@ -1,5 +1,9 @@
 # Giai đoạn 2B.1 — Xóa đồ uống an toàn
 
+> **Cập nhật 11/2026:** app đã chuyển từ SQLite sang Cloud Firestore. Quy tắc nghiệp vụ giữ nguyên; xóa mềm giờ
+> là các trường `deleted`, `previousStatus`, `deletedAt` trong document `products/{id}`, chạy trong 1 Firestore
+> transaction. Các chỗ nhắc SQLite bên dưới mô tả phiên bản cũ; xem `README.md` §5.
+
 ## Quy tắc nghiệp vụ
 
 - **Xóa một món:** biểu tượng thùng rác trên thẻ sản phẩm, cần xác nhận.

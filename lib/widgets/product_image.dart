@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/product.dart';
 
-// Icon theo danh mục (id danh mục xem trong database_helper.dart).
+// Icon theo danh mục (id danh mục xem trong lib/data/seed_data.dart).
 // Dùng cho ảnh thay thế và chip danh mục ở màn Menu.
 IconData categoryIcon(int categoryId) {
   switch (categoryId) {

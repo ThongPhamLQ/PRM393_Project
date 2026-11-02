@@ -6,7 +6,6 @@ import '../../models/cart_item.dart';
 import '../../models/order.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
-import '../../providers/notification_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/format.dart';
 import '../../utils/validators.dart';
@@ -62,7 +61,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
     final orderProvider = context.read<OrderProvider>();
-    final notificationProvider = context.read<NotificationProvider>();
     final user = context.read<AuthProvider>().currentUser!;
     // Snapshot để tổng tiền và món lưu khớp với thời điểm bắt đầu checkout.
     final items = cart.items
@@ -102,12 +100,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       orderSaved = true;
       cart.clear(); // Không thể gửi lại đơn vì lỗi thông báo hoặc đóng dialog.
-
-      try {
-        await notificationProvider.loadNotifications(user.id!);
-      } catch (e) {
-        debugPrint('Refreshing notification badge failed: $e');
-      }
+      // Badge thông báo tự tăng: NotificationProvider đang nghe Firestore
       if (!mounted) return;
       await showDialog<void>(
         context: context,

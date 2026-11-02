@@ -35,13 +35,14 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
-  sqflite: ^2.4.4+1
-  path: ^1.9.1
   shared_preferences: ^2.5.6
   flutter_local_notifications: ^22.3.2
   url_launcher: ^6.3.3
-  sqflite_common_ffi_web: ^1.2.0
   maplibre_gl: ^0.27.1
+  # Firebase: Auth (đăng nhập) + Cloud Firestore (database trên cloud, realtime)
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
 
 dev_dependencies:
   flutter_test:
@@ -53,14 +54,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-
-# Gói sqlite3 (đi kèm sqflite_common_ffi_web) mặc định nhúng thêm libsqlite3.so
-# (~1.6 MB mỗi kiến trúc CPU) vào APK. Android không dùng tới: sqflite dùng SQLite
-# của hệ điều hành, còn bản web dùng web/sqlite3.wasm -> tắt để APK nhẹ hơn.
-hooks:
-  user_defines:
-    sqlite3:
-      source: system
+  # Firestore giả lập trong bộ nhớ để unit test repository không cần mạng
+  fake_cloud_firestore: ^3.1.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

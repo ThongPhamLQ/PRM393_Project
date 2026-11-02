@@ -37,7 +37,7 @@ class _MainScreenState extends State<MainScreen> {
     // (gọi notifyListeners ngay trong initState sẽ bị lỗi)
     Future.microtask(() {
       if (!mounted) return;
-      final userId = context.read<AuthProvider>().currentUser!.id!;
+      final userId = context.read<AuthProvider>().currentUser!.id;
       context.read<MenuProvider>().loadMenu();
       context.read<NotificationProvider>().loadNotifications(userId);
     });

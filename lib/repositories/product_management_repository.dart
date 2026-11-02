@@ -1,10 +1,10 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../data/database_helper.dart';
+import '../data/firestore_db.dart';
 import '../models/cart_item.dart';
 
-/// Availability is stored separately so existing products and order history are
-/// preserved without a destructive table migration.
+/// Tình trạng bán lưu ngay trong document món (trường `status`). Món bị xóa
+/// mềm vẫn còn document: `deleted = true` + `previousStatus` để khôi phục.
 enum ProductSaleStatus {
   available('Đang bán'),
   soldOut('Hết hàng'),
@@ -55,9 +55,19 @@ class ManagedProduct {
   final int price;
   final String imageUrl;
   final ProductSaleStatus status;
+
+  factory ManagedProduct.fromMap(Map<String, dynamic> map) => ManagedProduct(
+    id: (map['id'] as num).toInt(),
+    categoryId: (map['categoryId'] as num).toInt(),
+    name: map['name'] as String,
+    description: (map['description'] as String?) ?? '',
+    price: (map['price'] as num).toInt(),
+    imageUrl: (map['imageUrl'] as String?) ?? '',
+    status: ProductSaleStatus.parse(map['status']),
+  );
 }
 
-/// Pure business validation is separately testable without opening SQLite.
+/// Pure business validation is separately testable without opening a database.
 class ProductInputRules {
   static String? validateName(String name) {
     if (name.trim().isEmpty) return 'Tên không được để trống.';
@@ -107,121 +117,78 @@ class ProductDeletionRules {
   }
 }
 
+/// Quản lý menu cho chủ quán trên Firestore: products/{id}, categories/{id},
+/// toppings/{id}. Security Rules chỉ cho tài khoản chủ quán ghi các collection này.
 class ProductManagementRepository {
-  ProductManagementRepository({
-    DatabaseHelper? helper,
-    Future<Database> Function()? databaseOpener,
-  }) : _helper = helper ?? DatabaseHelper.instance,
-       _databaseOpener = databaseOpener;
-  final DatabaseHelper _helper;
-  final Future<Database> Function()? _databaseOpener;
+  ProductManagementRepository({FirebaseFirestore? db}) : _dbOverride = db;
+  final FirebaseFirestore? _dbOverride;
+  FirebaseFirestore get _db => _dbOverride ?? FirebaseFirestore.instance;
 
-  Future<Database> get _db async =>
-      _databaseOpener == null ? _helper.database : _databaseOpener!();
+  CollectionReference<Map<String, dynamic>> get _products =>
+      _db.collection(Collections.products);
+  CollectionReference<Map<String, dynamic>> get _categories =>
+      _db.collection(Collections.categories);
+  CollectionReference<Map<String, dynamic>> get _toppings =>
+      _db.collection(Collections.toppings);
 
-  /// Idempotent schema extension. Called from both admin screens and the
-  /// customer menu/checkout paths; existing SQLite files are not deleted.
-  Future<void> ensureSchema() async {
-    final db = await _db;
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS product_sale_status (
-        productId INTEGER PRIMARY KEY,
-        status TEXT NOT NULL DEFAULT 'available'
-          CHECK (status IN ('available', 'soldOut', 'hidden'))
-      )
-    ''');
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS product_deleted (
-        productId INTEGER PRIMARY KEY,
-        previousStatus TEXT NOT NULL,
-        deletedAt TEXT NOT NULL
-      )
-    ''');
-  }
+  // Sắp xếp theo tên không phân biệt hoa thường (thay cho COLLATE NOCASE)
+  static int _byName(String a, String b) =>
+      a.toLowerCase().compareTo(b.toLowerCase());
+
+  static bool _isDeleted(Map<String, dynamic>? data) => data?['deleted'] == true;
 
   Future<List<ManagedCategory>> getCategories() async {
-    final db = await _db;
-    final rows = await db.query('categories', orderBy: 'name COLLATE NOCASE');
+    final snap = await _categories.get();
     return [
-      for (final row in rows)
-        ManagedCategory(id: row['id'] as int, name: row['name'] as String),
-    ];
+      for (final d in snap.docs)
+        ManagedCategory(
+          id: (d['id'] as num).toInt(),
+          name: d['name'] as String,
+        ),
+    ]..sort((a, b) => _byName(a.name, b.name));
   }
 
   Future<List<ManagedTopping>> getToppings() async {
-    final db = await _db;
-    final rows = await db.query('toppings', orderBy: 'name COLLATE NOCASE');
+    final snap = await _toppings.get();
     return [
-      for (final row in rows)
+      for (final d in snap.docs)
         ManagedTopping(
-          id: row['id'] as int,
-          name: row['name'] as String,
-          price: (row['price'] as num).toInt(),
+          id: (d['id'] as num).toInt(),
+          name: d['name'] as String,
+          price: (d['price'] as num).toInt(),
         ),
-    ];
+    ]..sort((a, b) => _byName(a.name, b.name));
   }
 
   Future<List<ManagedProduct>> getProducts() async {
-    await ensureSchema();
-    final db = await _db;
-    final rows = await db.rawQuery('''
-      SELECT p.*, COALESCE(s.status, 'available') AS saleStatus
-      FROM products p
-      LEFT JOIN product_sale_status s ON s.productId = p.id
-      LEFT JOIN product_deleted d ON d.productId = p.id
-      WHERE d.productId IS NULL
-      ORDER BY p.name COLLATE NOCASE
-    ''');
+    final snap = await _products.get();
     return [
-      for (final r in rows)
-        ManagedProduct(
-          id: r['id'] as int,
-          categoryId: r['categoryId'] as int,
-          name: r['name'] as String,
-          description: (r['description'] as String?) ?? '',
-          price: (r['price'] as num).toInt(),
-          imageUrl: (r['imageUrl'] as String?) ?? '',
-          status: ProductSaleStatus.parse(r['saleStatus']),
-        ),
-    ];
+      for (final d in snap.docs)
+        if (!_isDeleted(d.data())) ManagedProduct.fromMap(d.data()),
+    ]..sort((a, b) => _byName(a.name, b.name));
   }
 
   /// Product details stay intact, including their former sale status.
   Future<List<ManagedProduct>> getDeletedProducts() async {
-    await ensureSchema();
-    final db = await _db;
-    final rows = await db.rawQuery('''
-      SELECT p.*, COALESCE(s.status, 'available') AS saleStatus
-      FROM products p
-      INNER JOIN product_deleted d ON d.productId = p.id
-      LEFT JOIN product_sale_status s ON s.productId = p.id
-      ORDER BY d.deletedAt DESC, p.name COLLATE NOCASE
-    ''');
-    return [
-      for (final r in rows)
-        ManagedProduct(
-          id: r['id'] as int,
-          categoryId: r['categoryId'] as int,
-          name: r['name'] as String,
-          description: (r['description'] as String?) ?? '',
-          price: (r['price'] as num).toInt(),
-          imageUrl: (r['imageUrl'] as String?) ?? '',
-          status: ProductSaleStatus.parse(r['saleStatus']),
-        ),
-    ];
+    final snap = await _products.where('deleted', isEqualTo: true).get();
+    final docs = snap.docs.toList()
+      ..sort((a, b) {
+        final byTime = (b['deletedAt'] as Timestamp).compareTo(
+          a['deletedAt'] as Timestamp,
+        );
+        return byTime != 0 ? byTime : _byName(a['name'], b['name']);
+      });
+    return [for (final d in docs) ManagedProduct.fromMap(d.data())];
   }
 
   /// Customer menu hides sold-out, discontinued and deleted products.
   Future<Set<int>> getUnavailableIds() async {
-    await ensureSchema();
-    final db = await _db;
-    final rows = await db.query(
-      'product_sale_status',
-      columns: ['productId'],
-      where: 'status != ?',
-      whereArgs: [ProductSaleStatus.available.name],
-    );
-    return rows.map((r) => r['productId'] as int).toSet();
+    final snap = await _products.get();
+    return {
+      for (final d in snap.docs)
+        if (d['status'] != ProductSaleStatus.available.name)
+          (d['id'] as num).toInt(),
+    };
   }
 
   Future<int> saveProduct({
@@ -241,190 +208,152 @@ class ProductManagementRepository {
         nameError ?? priceError ?? imageError ?? 'Dữ liệu không hợp lệ.',
       );
     }
-    await ensureSchema();
-    final db = await _db;
-    return db.transaction((txn) async {
-      final categories = await txn.query(
-        'categories',
-        columns: ['id'],
-        where: 'id = ?',
-        whereArgs: [categoryId],
-        limit: 1,
-      );
-      if (categories.isEmpty) throw StateError('Danh mục không còn tồn tại.');
+    return _db.runTransaction((txn) async {
+      // Transaction: đọc hết (danh mục, món cũ, bộ đếm) rồi mới ghi
+      final category = await txn.get(_categories.doc('$categoryId'));
+      if (!category.exists) throw StateError('Danh mục không còn tồn tại.');
+      if (id != null) {
+        final existing = await txn.get(_products.doc('$id'));
+        if (!existing.exists) {
+          throw StateError('Không tìm thấy sản phẩm cần sửa.');
+        }
+        if (_isDeleted(existing.data())) {
+          throw StateError('Hãy khôi phục sản phẩm trước khi sửa.');
+        }
+      }
+      final savedId = id ?? await nextId(txn, _db, Collections.products);
       final values = <String, Object?>{
+        'id': savedId,
         'categoryId': categoryId,
         'name': name.trim(),
         'description': description.trim(),
         'price': price,
         'imageUrl': imageUrl.trim(),
-      };
-      int savedId;
-      if (id == null) {
-        savedId = await txn.insert('products', values);
-      } else {
-        final changed = await txn.update(
-          'products',
-          values,
-          where: 'id = ?',
-          whereArgs: [id],
-        );
-        if (changed != 1) throw StateError('Không tìm thấy sản phẩm cần sửa.');
-        savedId = id;
-      }
-      await txn.insert('product_sale_status', {
-        'productId': savedId,
         'status': status.name,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      };
+      final ref = _products.doc('$savedId');
+      if (id == null) {
+        txn.set(ref, {...values, 'deleted': false});
+      } else {
+        txn.update(ref, values);
+      }
       return savedId;
     });
   }
 
   Future<void> changeProductStatus(int id, ProductSaleStatus status) async {
-    await ensureSchema();
-    final db = await _db;
-    await db.transaction((txn) async {
-      final p = await txn.query(
-        'products',
-        columns: ['id'],
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (p.isEmpty) throw StateError('Sản phẩm không còn tồn tại.');
-      final deleted = await txn.query(
-        'product_deleted',
-        columns: ['productId'],
-        where: 'productId = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (deleted.isNotEmpty) {
+    await _db.runTransaction((txn) async {
+      final ref = _products.doc('$id');
+      final snap = await txn.get(ref);
+      if (!snap.exists) throw StateError('Sản phẩm không còn tồn tại.');
+      if (_isDeleted(snap.data())) {
         throw StateError('Hãy khôi phục sản phẩm trước khi sửa trạng thái.');
       }
-      await txn.insert('product_sale_status', {
-        'productId': id,
-        'status': status.name,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      txn.update(ref, {'status': status.name});
     });
   }
 
-  /// Move one or many products into the recycle bin atomically. No rows in
-  /// products/order_items are deleted, and the previous sale status is saved.
+  /// Move one or many products into the recycle bin atomically. Documents in
+  /// products/orders are not deleted, and the previous sale status is saved.
   Future<int> softDeleteProducts(List<int> inputIds) async {
     final ids = ProductDeletionRules.validIds(inputIds);
     if (ids.isEmpty) throw StateError('Chưa chọn đồ uống cần xóa.');
-    await ensureSchema();
-    final db = await _db;
-    return db.transaction((txn) async {
-      // Keep SQL placeholder counts well below SQLite variable limits.
-      for (var start = 0; start < ids.length; start += 300) {
-        final part = ids.skip(start).take(300).toList();
-        final markers = List.filled(part.length, '?').join(',');
-        final present = await txn.rawQuery(
-          'SELECT id FROM products WHERE id IN ($markers)',
-          part,
+    // shortcut: 1 transaction tối đa 500 lần ghi; quán có hơn 500 món thì phải chia đợt.
+    return _db.runTransaction((txn) async {
+      final snaps = [
+        for (final id in ids) await txn.get(_products.doc('$id')),
+      ];
+      if (snaps.any((s) => !s.exists || _isDeleted(s.data()))) {
+        throw StateError(
+          'Danh sách có món không tồn tại hoặc đã xóa. Hãy làm mới.',
         );
-        final alreadyDeleted = await txn.rawQuery(
-          'SELECT productId FROM product_deleted WHERE productId IN ($markers)',
-          part,
-        );
-        if (present.length != part.length || alreadyDeleted.isNotEmpty) {
-          throw StateError(
-            'Danh sách có món không tồn tại hoặc đã xóa. Hãy làm mới.',
-          );
-        }
       }
-      final stamp = DateTime.now().toUtc().toIso8601String();
-      final batch = txn.batch();
-      for (final id in ids) {
-        // Preserve actual prior availability, not just a generic "available".
-        batch.rawInsert(
-          '''
-          INSERT INTO product_deleted (productId, previousStatus, deletedAt)
-          SELECT ?, COALESCE(s.status, 'available'), ?
-          FROM products p
-          LEFT JOIN product_sale_status s ON p.id = s.productId
-          WHERE p.id = ?
-        ''',
-          [id, stamp, id],
-        );
-        batch.insert('product_sale_status', {
-          'productId': id,
+      final stamp = Timestamp.now();
+      for (final snap in snaps) {
+        txn.update(snap.reference, {
+          'deleted': true,
+          // Giữ đúng tình trạng cũ (vd: hết hàng), không mặc định "đang bán"
+          'previousStatus': snap.data()!['status'] ?? 'available',
           'status': ProductSaleStatus.hidden.name,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+          'deletedAt': stamp,
+        });
       }
-      await batch.commit(noResult: true);
       return ids.length;
     });
   }
 
-  /// Restores previous availability in the same SQLite transaction.
+  /// Restores previous availability in the same transaction.
   Future<void> restoreProduct(int id) async {
     if (id <= 0) throw StateError('ID sản phẩm không hợp lệ.');
-    await ensureSchema();
-    final db = await _db;
-    await db.transaction((txn) async {
-      final rows = await txn.query(
-        'product_deleted',
-        columns: ['previousStatus'],
-        where: 'productId = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
-      if (rows.isEmpty) throw StateError('Sản phẩm không nằm trong thùng rác.');
-      final oldStatus = ProductSaleStatus.parse(rows.single['previousStatus']);
-      await txn.insert('product_sale_status', {
-        'productId': id,
+    await _db.runTransaction((txn) async {
+      final ref = _products.doc('$id');
+      final snap = await txn.get(ref);
+      if (!_isDeleted(snap.data())) {
+        throw StateError('Sản phẩm không nằm trong thùng rác.');
+      }
+      final oldStatus = ProductSaleStatus.parse(snap.data()!['previousStatus']);
+      txn.update(ref, {
+        'deleted': false,
         'status': oldStatus.name,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
-      final changed = await txn.delete(
-        'product_deleted',
-        where: 'productId = ?',
-        whereArgs: [id],
-      );
-      if (changed != 1) throw StateError('Không khôi phục được sản phẩm.');
+        'previousStatus': FieldValue.delete(),
+        'deletedAt': FieldValue.delete(),
+      });
     });
   }
 
-  Future<int> saveCategory(String name, {int? id}) async {
-    if (ProductInputRules.validateName(name) != null) {
-      throw StateError(
-        ProductInputRules.validateName(name) ?? 'Tên không hợp lệ.',
-      );
+  // Danh mục và topping dùng chung cách lưu: kiểm tra trùng tên rồi thêm / sửa
+  Future<int> _saveNamed(
+    CollectionReference<Map<String, dynamic>> collection,
+    String counterName,
+    Map<String, Object> values, {
+    required int? id,
+    required String duplicateMessage,
+    required String missingMessage,
+  }) async {
+    final name = values['name'] as String;
+    final existing = await collection.get();
+    final duplicate = existing.docs.any(
+      (d) =>
+          (d['name'] as String).toLowerCase() == name.toLowerCase() &&
+          (d['id'] as num).toInt() != id,
+    );
+    if (duplicate) throw StateError(duplicateMessage);
+    if (id == null) {
+      return _db.runTransaction((txn) async {
+        final newId = await nextId(txn, _db, counterName);
+        txn.set(collection.doc('$newId'), {...values, 'id': newId});
+        return newId;
+      });
     }
-    final db = await _db;
-    final duplicate = await db.query(
-      'categories',
-      columns: ['id'],
-      where: 'LOWER(name) = LOWER(?) AND id != ?',
-      whereArgs: [name.trim(), id ?? -1],
-      limit: 1,
-    );
-    if (duplicate.isNotEmpty) throw StateError('Danh mục đã tồn tại.');
-    if (id == null) return db.insert('categories', {'name': name.trim()});
-    final changed = await db.update(
-      'categories',
-      {'name': name.trim()},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (changed != 1) throw StateError('Danh mục không còn tồn tại.');
+    if (!existing.docs.any((d) => d.id == '$id')) {
+      throw StateError(missingMessage);
+    }
+    await collection.doc('$id').update(values);
     return id;
   }
 
+  Future<int> saveCategory(String name, {int? id}) async {
+    final nameError = ProductInputRules.validateName(name);
+    if (nameError != null) throw StateError(nameError);
+    return _saveNamed(
+      _categories,
+      Collections.categories,
+      {'name': name.trim()},
+      id: id,
+      duplicateMessage: 'Danh mục đã tồn tại.',
+      missingMessage: 'Danh mục không còn tồn tại.',
+    );
+  }
+
   Future<void> deleteCategoryIfEmpty(int id) async {
-    final db = await _db;
-    await db.transaction((txn) async {
-      final rows = await txn.rawQuery(
-        'SELECT COUNT(*) AS count FROM products WHERE categoryId = ?',
-        [id],
-      );
-      if ((rows.first['count'] as num).toInt() > 0) {
-        throw StateError('Danh mục còn sản phẩm, kể cả sản phẩm đã ẩn.');
-      }
-      await txn.delete('categories', where: 'id = ?', whereArgs: [id]);
-    });
+    final used = await _products
+        .where('categoryId', isEqualTo: id)
+        .limit(1)
+        .get();
+    if (used.docs.isNotEmpty) {
+      throw StateError('Danh mục còn sản phẩm, kể cả sản phẩm đã ẩn.');
+    }
+    await _categories.doc('$id').delete();
   }
 
   Future<int> saveTopping(String name, int price, {int? id}) async {
@@ -433,30 +362,18 @@ class ProductManagementRepository {
     if (nameError != null || priceError != null) {
       throw StateError(nameError ?? priceError ?? 'Dữ liệu không hợp lệ.');
     }
-    final db = await _db;
-    final duplicate = await db.query(
-      'toppings',
-      columns: ['id'],
-      where: 'LOWER(name) = LOWER(?) AND id != ?',
-      whereArgs: [name.trim(), id ?? -1],
-      limit: 1,
+    return _saveNamed(
+      _toppings,
+      Collections.toppings,
+      {'name': name.trim(), 'price': price},
+      id: id,
+      duplicateMessage: 'Topping đã tồn tại.',
+      missingMessage: 'Topping không còn tồn tại.',
     );
-    if (duplicate.isNotEmpty) throw StateError('Topping đã tồn tại.');
-    final values = {'name': name.trim(), 'price': price};
-    if (id == null) return db.insert('toppings', values);
-    final changed = await db.update(
-      'toppings',
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (changed != 1) throw StateError('Topping không còn tồn tại.');
-    return id;
   }
 
   Future<void> deleteTopping(int id) async {
-    final db = await _db;
-    await db.delete('toppings', where: 'id = ?', whereArgs: [id]);
+    await _toppings.doc('$id').delete();
     // Order snapshots stay immutable; old carts fail validation at checkout.
   }
 
@@ -464,38 +381,26 @@ class ProductManagementRepository {
   /// previously cached cart cannot purchase a now-hidden/sold-out product.
   Future<void> assertCartSellable(List<CartItem> items) async {
     if (items.isEmpty) throw StateError('Giỏ hàng đang trống.');
-    await ensureSchema();
-    final db = await _db;
+    final toppingPrices = {
+      for (final d in (await _toppings.get()).docs)
+        d['name'] as String: (d['price'] as num).toInt(),
+    };
     for (final item in items) {
-      final id = item.product.id;
-      final rows = await db.rawQuery(
-        '''
-        SELECT p.price, COALESCE(s.status, 'available') AS status
-        FROM products p LEFT JOIN product_sale_status s ON p.id = s.productId
-        WHERE p.id = ?
-      ''',
-        [id],
-      );
-      if (rows.isEmpty || rows.single['status'] != 'available') {
+      final data = (await _products.doc('${item.product.id}').get()).data();
+      if (data == null ||
+          _isDeleted(data) ||
+          data['status'] != ProductSaleStatus.available.name) {
         throw StateError(
           'Một món trong giỏ đã hết hàng hoặc ngừng bán. Vui lòng chọn lại.',
         );
       }
-      if ((rows.single['price'] as num).toInt() != item.product.price) {
+      if ((data['price'] as num).toInt() != item.product.price) {
         throw StateError(
           'Giá sản phẩm đã thay đổi. Vui lòng xóa món cũ và thêm lại.',
         );
       }
       for (final topping in item.toppings) {
-        final top = await db.query(
-          'toppings',
-          columns: ['price'],
-          where: 'name = ?',
-          whereArgs: [topping.name],
-          limit: 1,
-        );
-        if (top.isEmpty ||
-            (top.single['price'] as num).toInt() != topping.price) {
+        if (toppingPrices[topping.name] != topping.price) {
           throw StateError(
             'Topping đã bị xóa, đổi tên hoặc đổi giá. Vui lòng chọn lại món.',
           );
