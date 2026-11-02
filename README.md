@@ -72,21 +72,25 @@ Bản web dùng chung database Firestore với điện thoại, nên có thể m
 | # | Chức năng | Màn hình | Ghi chú |
 |---|-----------|----------|---------|
 | 1 | Đăng nhập / Đăng ký | `auth/login_screen`, `auth/register_screen` | Firebase Auth, form validation, tự đăng nhập lại khi mở app (Splash) |
-| 2 | Menu theo danh mục | `customer/menu_screen` | Lời chào, tìm kiếm, banner, lọc danh mục (ChoiceChip có icon), lưới ảnh món tự tính số cột theo bề rộng; chủ quán đổi menu là cập nhật ngay |
-| 3 | Chi tiết món | `customer/product_detail_screen` | Chọn size (Radio), topping (Checkbox), ghi chú, số lượng |
+| 2 | Menu theo danh mục | `customer/menu_screen` | Lời chào, tìm kiếm **không cần gõ dấu** ("tra sua" ra "Trà sữa"), banner, lọc danh mục (ChoiceChip có icon), lưới ảnh món tự tính số cột theo bề rộng; chủ quán đổi menu là cập nhật ngay. Có đơn đang chạy thì hiện thẻ **"Đơn đang thực hiện"** (trạng thái + thanh tiến độ, đổi ngay khi quán chuyển bước); nút giỏ nổi "Xem giỏ · tổng tiền" |
+| 3 | Chi tiết món | `customer/product_detail_screen` | Ảnh bay từ thẻ món sang (Hero). Chọn size (Radio), topping (Checkbox), **mức đường, mức đá** (ChoiceChip, không đổi giá), ghi chú, số lượng. Thêm vào giỏ: rung nhẹ, số trên nút giỏ nảy lên |
 | 4 | Giỏ hàng | `customer/cart_screen` | Tăng/giảm, vuốt để xóa, gộp món trùng |
-| 5 | Đặt hàng + thanh toán giả lập | `customer/checkout_screen`, `widgets/fake_payment_dialog` | Tiền mặt / MoMo / Thẻ (giả lập 2 giây) |
-| 6 | Lịch sử đơn hàng | `customer/order_history_screen`, `shared/order_detail_screen` | Trạng thái tự cập nhật khi quán đổi, hủy đơn khi còn "Chờ xác nhận" |
-| 7 | Thông báo trạng thái đơn | `customer/notifications_screen` | Quán đổi trạng thái trên máy khác → máy khách hiện thông báo hệ thống + badge chưa đọc |
+| 5 | Đặt hàng + thanh toán giả lập | `customer/checkout_screen`, `customer/order_success_screen`, `widgets/fake_payment_dialog` | Tiền mặt / MoMo / Thẻ (giả lập 2 giây). Tự điền địa chỉ của đơn gần nhất. Đặt xong sang màn **"Đặt hàng thành công"** có mã đơn + nút "Theo dõi đơn" |
+| 6 | Lịch sử đơn hàng | `customer/order_history_screen`, `shared/order_detail_screen` | Chi tiết đơn tự đổi khi quán chuyển bước (timeline có hiệu ứng), hủy đơn khi còn "Chờ xác nhận", **"Đặt lại"** đơn đã xong (theo menu hiện tại, bỏ món ngừng bán) |
+| 7 | Thông báo trạng thái đơn | `customer/notifications_screen` | Quán đổi trạng thái trên máy khác → máy khách hiện thông báo hệ thống + badge chưa đọc. **Bấm thông báo mở đúng đơn** đó |
 | 8 | Bản đồ vị trí quán | `customer/store_screen` | Bản đồ Goong (maplibre_gl), nút chỉ đường Google Maps, gọi điện |
 | 9 | Chat với quán | `shared/chat_screen` | Realtime: tin nhắn hiện ngay trên máy bên kia |
-| 10 | Trang quản lý đơn (chủ quán) | `admin/admin_orders_screen` | Đơn mới tự hiện, lọc theo trạng thái, chuyển trạng thái → khách nhận thông báo |
+| 10 | Trang quản lý đơn (chủ quán) | `admin/admin_orders_screen` | Đơn mới tự hiện + **thông báo hệ thống "Đơn mới #…"** + badge số đơn chờ trên tab Đơn hàng, lọc theo trạng thái, chuyển trạng thái → khách nhận thông báo |
 | + | Tổng quan kinh doanh | `admin/admin_dashboard_screen` | Doanh thu, số đơn, đồ uống bán chạy theo 7 / 30 ngày / tất cả |
 | + | Quản lý sản phẩm | `admin/admin_products_screen` | Thêm / sửa món, danh mục, topping, hết hàng / ngừng bán, xóa nhiều món + khôi phục |
 | + | Chế độ tối | `customer/profile_screen` | Lưu bằng SharedPreferences |
 | + | Chỉnh sửa thông tin cá nhân | `customer/edit_profile_screen` | Sửa họ tên, SĐT; đổi mật khẩu phải nhập đúng mật khẩu cũ (Firebase xác thực lại); email không đổi |
 
 Luồng trạng thái đơn: `Chờ xác nhận → Đã xác nhận → Đang pha chế → Đang giao → Hoàn thành` (hoặc `Đã hủy` khi còn chờ xác nhận).
+
+Mọi danh sách (menu, đơn, thông báo, chat) phân biệt 3 trạng thái: **đang tải** (vòng xoay), **lỗi** (thông báo + nút "Thử lại",
+TalkBack tự đọc) và **trống thật**. Logo vẽ bằng code (`widgets/app_logo.dart`) dùng cho splash, đăng nhập, icon app Android
+(adaptive + icon thông báo + màn chờ nền nâu) và icon web.
 
 ## 3. Kiến trúc (Provider)
 
@@ -139,8 +143,9 @@ lib/
 ├── widgets/                  # widget tách nhỏ, dùng lại nhiều nơi
 └── utils/                    # constants, format tiền/ngày, validators, logout
 test/
-├── unit/                     # giỏ hàng, trạng thái đơn, validators, KPI, quản lý món (Firestore giả lập)
-└── widget/                   # test màn hình đăng nhập
+├── unit/                     # giỏ hàng, mức đường/đá, đặt lại, trạng thái + theo dõi đơn, tìm không dấu,
+│                             # validators, KPI, quản lý món (Firestore giả lập)
+└── widget/                   # màn hình đăng nhập, màn lỗi có "Thử lại", tắt hiệu ứng
 tool/seed_firestore.dart      # nạp dữ liệu mẫu lên Firestore
 firestore.rules               # Security Rules (phân quyền phía server)
 ```
@@ -152,17 +157,19 @@ Firestore lưu dạng **collection → document** (giống JSON), không có b�
 | Collection (document id) | Trường chính | Ghi chú |
 |------|-----------|---------|
 | `users/{uid}` | name, email, phone, role (`customer`/`admin`) | uid do Firebase Auth cấp; mật khẩu do Firebase Auth giữ, không lưu ở đây |
-| `users/{uid}/notifications/{auto}` | title, body, isRead, createdAt | Subcollection: thông báo của từng người |
+| `users/{uid}/notifications/{auto}` | title, body, isRead, createdAt, orderId | Subcollection: thông báo của từng người. `orderId` (số, không bắt buộc) để bấm vào mở đúng đơn; thông báo cũ không có thì chỉ đánh dấu đã đọc |
 | `categories/{id}` | id, name | id là số (`"1"`, `"2"`…) |
 | `products/{id}` | id, categoryId, name, description, price, imageUrl, status (`available`/`soldOut`/`hidden`), deleted, previousStatus, deletedAt | Xóa mềm: `deleted = true`, giữ `previousStatus` để khôi phục |
 | `toppings/{id}` | id, name, price | |
-| `orders/{id}` | id, userId, customerName, phone, address, note, paymentMethod, isPaid, totalPrice, status, createdAt, **items[]** | Các món nằm luôn trong đơn (mảng `items`: productName, size, toppings, note, quantity, unitPrice) thay cho bảng order_items |
+| `orders/{id}` | id, userId, customerName, phone, address, note, paymentMethod, isPaid, totalPrice, status, createdAt, **items[]** | Các món nằm luôn trong đơn (mảng `items`: productId, productName, size, toppings, sugar, ice, note, quantity, unitPrice) thay cho bảng order_items. `productId`, `sugar`, `ice` mới thêm: đơn cũ thiếu thì đọc ra mặc định (không đặt lại được / không hiện mức đường đá) |
 | `chats/{customerUid}` | customerName, lastMessage, lastTime | Danh sách cuộc trò chuyện của chủ quán đọc thẳng collection này (thay JOIN + GROUP BY) |
 | `chats/{customerUid}/messages/{auto}` | sender (`customer`/`shop`), content, createdAt | |
 | `counters/{name}` | value | Bộ đếm cấp mã đơn `#1, #2…` và id món / danh mục / topping mới, tăng trong transaction |
 
 - `items` lưu **tên + giá tại thời điểm đặt** → quán đổi giá menu thì lịch sử đơn vẫn đúng.
-- Giá size cố định trong code (`utils/constants.dart`): S +0đ, M +6.000đ, L +10.000đ.
+- Giá size cố định trong code (`utils/constants.dart`): S +0đ, M +6.000đ, L +10.000đ. Mức đường
+  (100% / 70% / 50% / 30% / 0%) và mức đá (Bình thường / Ít đá / Không đá) cũng ở đó, không đổi giá.
+- Các field mới không bắt buộc nên **không phải sửa `firestore.rules`**.
 - Ảnh món nằm ở `assets/images/products/` (khai báo trong `pubspec.yaml`), trường `imageUrl` lưu đường dẫn
   `assets/...` (hoặc link `http...`); thiếu file / lỗi tải thì app hiện icon theo danh mục.
 - Đặt đơn, đổi trạng thái, xóa / khôi phục món chạy trong **transaction**: đọc lại dữ liệu mới nhất rồi mới ghi,
@@ -198,19 +205,33 @@ Firestore lưu dạng **collection → document** (giống JSON), không có b�
 | `url_launcher` | Mở Google Maps chỉ đường, mở trình gọi điện | Gọi app khác của điện thoại bằng URL |
 | `RadioGroup` | Quản lý nhóm Radio (size, phương thức thanh toán) | Flutter 3.32+ bỏ `groupValue`/`onChanged` trên từng Radio |
 | Enum có thuộc tính (enhanced enum) | `OrderStatus('Chờ xác nhận', ...)`, `PaymentMethod` | Gom nhãn + mô tả vào 1 chỗ, có getter `next` |
+| Animation ngầm: `AnimatedSwitcher`, `TweenAnimationBuilder`, `AnimatedContainer`, `AnimatedScale` | Nhãn trạng thái, timeline, thanh tiến độ, dấu tích màn thành công, nút giỏ nổi (`utils/motion.dart`) | Trạng thái đổi có chuyển tiếp ngắn (~200 ms, chỉ mờ + phóng) thay vì nhảy cụt |
+| `AnimationController` + `TweenSequence` | Số trên nút giỏ nảy 1 nhịp khi thêm món (`widgets/cart_button.dart`) | Phản hồi rõ "đã thêm vào giỏ" |
+| `Hero` | Ảnh món bay từ thẻ Menu sang màn chi tiết | Giữ mạch nhìn khi chuyển màn |
+| `MediaQuery.disableAnimationsOf` | Người dùng bật "Tắt hiệu ứng" trong Cài đặt → mọi hiệu ứng trên = 0 ms | Hỗ trợ người dễ chóng mặt |
+| `Semantics(liveRegion: true)` | Màn lỗi có "Thử lại" được TalkBack đọc ngay | Trợ năng |
+| `HapticFeedback.lightImpact` | Rung nhẹ khi thêm vào giỏ | Cảm giác bấm thật |
+| `CustomPainter` + xuất PNG | Logo vẽ bằng code, xuất thành icon app Android / web | Không cần phần mềm đồ họa, một nguồn cho mọi cỡ |
+| Adaptive icon, icon thông báo, màn chờ Android 12 | `res/mipmap-anydpi-v26`, `drawable-*/ic_stat_cafe`, `values-v31` | Icon đúng chuẩn Android (thông báo phải là hình trắng trong suốt) |
+| Chuẩn hóa chữ tiếng Việt (bỏ dấu, cả dạng NFD) | Tìm món không cần gõ dấu (`utils/text_search.dart`) | Người Việt hay gõ không dấu |
+| Dart 3: record, `firstOrNull`, `'k': ?v` (null-aware element) | `cartItemsFromOrder` trả record; field không bắt buộc chỉ ghi khi có giá trị | Code ngắn, không ghi field null lên Firestore |
 
 ## 8. Kịch bản demo gợi ý (15 phút)
 
 Chuẩn bị 2 máy: máy A (điện thoại / máy ảo) đăng nhập khách, máy B (Chrome hoặc điện thoại khác) đăng nhập chủ quán.
 
-1. Mở app → Splash → Login. Đăng ký tài khoản mới (thử nhập sai để thấy validate).
-2. Máy A (khách) → Menu: lọc danh mục, tìm kiếm → chọn món, chọn size L + 2 topping → thêm giỏ.
+1. Mở app → Splash (logo Mộc Cafe) → Login. Đăng ký tài khoản mới (thử nhập sai để thấy validate).
+2. Máy A (khách) → Menu: lọc danh mục, gõ "tra sua" (không dấu) → bấm món (ảnh bay sang) → size L, 2 topping,
+   **đường 70%, ít đá** → Thêm vào giỏ (rung nhẹ, số trên nút giỏ nảy, nút "Xem giỏ · …" hiện ở góc).
 3. Máy B (chủ quán) → Quản lý sản phẩm: báo "Hết hàng" 1 món → máy A thấy món biến mất khỏi menu.
-4. Máy A: giỏ hàng → Đặt hàng → chọn MoMo → thanh toán giả lập → máy B thấy đơn mới hiện ngay.
-5. Máy B chuyển trạng thái từng bước → máy A hiện thông báo hệ thống, badge tăng, tab Đơn hàng đổi trạng thái.
-6. Chat: máy A nhắn quán → máy B trả lời → tin hiện ngay hai bên.
-7. Máy B: Tổng quan kinh doanh (doanh thu, món bán chạy).
-8. Tắt app mở lại → vẫn giữ đăng nhập (Firebase Auth) + chế độ tối. Chạy `flutter test`, mở APK release trên máy.
+4. Máy A: Xem giỏ → Đặt hàng (địa chỉ tự điền từ đơn trước) → MoMo → màn **"Đặt hàng thành công"** có mã đơn.
+   Máy B: hiện thông báo "Đơn mới #…" và badge trên tab Đơn hàng.
+5. Máy A bấm **"Theo dõi đơn"**. Máy B chuyển trạng thái từng bước → timeline máy A đổi ngay có hiệu ứng;
+   quay về Menu thấy thẻ "Đơn đang thực hiện" chạy theo.
+6. Máy A → tab Thông báo → **bấm 1 thông báo → mở đúng đơn đó**. Đơn hoàn thành → **"Đặt lại"** → giỏ có lại đúng các món.
+7. Chat: máy A nhắn quán → máy B trả lời → tin hiện ngay hai bên.
+8. Máy B: Tổng quan kinh doanh (doanh thu, món bán chạy).
+9. Tắt app mở lại → vẫn giữ đăng nhập (Firebase Auth) + chế độ tối. Chạy `flutter test`, mở APK release trên máy.
 
 ## 9. Hạn chế & hướng phát triển
 
