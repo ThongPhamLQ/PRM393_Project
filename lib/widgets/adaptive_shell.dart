@@ -13,6 +13,9 @@ class AdaptiveShell extends StatelessWidget {
   final List<NavigationDestination> destinations;
   final Widget body;
   final PreferredSizeWidget? appBar;
+  // Nút nổi đặt ở Scaffold ngoài cùng: SnackBar cũng hiện ở Scaffold này nên
+  // Scaffold tự đẩy nút lên trên SnackBar, không bị che
+  final Widget? floatingActionButton;
 
   const AdaptiveShell({
     super.key,
@@ -21,6 +24,7 @@ class AdaptiveShell extends StatelessWidget {
     required this.destinations,
     required this.body,
     this.appBar,
+    this.floatingActionButton,
   });
 
   @override
@@ -38,6 +42,7 @@ class AdaptiveShell extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: appBar,
+      floatingActionButton: floatingActionButton,
       bottomNavigationBar: useRail
           ? null
           : NavigationBar(

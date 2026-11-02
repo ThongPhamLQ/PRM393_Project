@@ -202,7 +202,8 @@ class MenuScreen extends StatelessWidget {
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  // Đáy chừa 96px để nút giỏ nổi không che món cuối
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                   sliver: SliverGrid.builder(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: columns,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/cart_item.dart';
@@ -54,14 +55,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   void _addToCart() {
-    context.read<CartProvider>().addItem(_buildCartItem());
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Lấy trước khi pop (sau pop không dùng context của màn này nữa)
+    final cart = context.read<CartProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final item = _buildCartItem();
+    HapticFeedback.lightImpact(); // rung nhẹ xác nhận đã bấm
+    Navigator.pop(context);
+    // Thêm SAU khi pop: Menu đã hiện lại nên thấy số trên nút giỏ nảy lên
+    cart.addItem(item);
+    messenger.showSnackBar(
       SnackBar(
-        content: Text('Đã thêm ${widget.product.name} vào giỏ'),
-        duration: const Duration(seconds: 1),
+        content: Text('Đã thêm ${item.quantity} ly ${widget.product.name} vào giỏ'),
+        duration: const Duration(seconds: 2),
       ),
     );
-    Navigator.pop(context);
   }
 
   @override
@@ -73,9 +80,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final priceStyle =
         textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant);
 
-    final image = ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: ProductImage(product: product, iconSize: 100),
+    // Cùng tag Hero với thẻ món ở Menu -> ảnh bay từ thẻ sang đây
+    final image = Hero(
+      tag: productHeroTag(product),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ProductImage(product: product, iconSize: 100),
+      ),
     );
 
     // Chữ trên khối nâu: tên in hoa, mô tả, giá (textTheme của màn -> tự đặt màu sáng)

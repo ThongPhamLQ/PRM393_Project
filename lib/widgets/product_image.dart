@@ -17,6 +17,9 @@ IconData categoryIcon(int categoryId) {
   }
 }
 
+// Tag Hero của ảnh món: thẻ ở Menu và ảnh ở màn chi tiết dùng chung tag này
+String productHeroTag(Product product) => 'product-image-${product.id}';
+
 // Ảnh món: 'assets/...' -> ảnh có sẵn trong app, 'http...' -> ảnh trên mạng,
 // để trống / thiếu file / lỗi tải -> icon theo danh mục
 class ProductImage extends StatelessWidget {
@@ -56,12 +59,15 @@ class ProductImage extends StatelessWidget {
       builder: (context, constraints) {
         // Giải mã ảnh gốc 800px theo đúng cỡ đang hiển thị -> tốn ít RAM hơn
         // (Module 12 - Demo 12.2). Ảnh vuông + BoxFit.cover nên lấy cạnh dài.
+        // Làm tròn lên bậc 200px: lúc Hero bay, khung đổi cỡ từng khung hình;
+        // không làm tròn thì mỗi khung hình lại giải mã ảnh ở cỡ mới.
         final side = constraints.biggest.longestSide;
+        final pixels = side * MediaQuery.devicePixelRatioOf(context);
         return Image.asset(
           url,
           fit: BoxFit.cover,
           cacheWidth: side.isFinite && side > 0
-              ? (side * MediaQuery.devicePixelRatioOf(context)).ceil()
+              ? (pixels / 200).ceil() * 200
               : null,
           excludeFromSemantics: true,
           errorBuilder: onError,
