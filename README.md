@@ -14,11 +14,13 @@ tin nhắn, menu đều hiện ngay trên máy bên kia (realtime).
 flutter pub get
 flutter run --dart-define-from-file=.env                 # chạy debug trên máy ảo / điện thoại Android
 flutter test                                             # chạy unit test + widget test
+firebase emulators:exec --project demo-prm393 --only firestore "node test/rules/firestore_rules_test.mjs"
 flutter build apk --release --dart-define-from-file=.env # build APK release -> build/app/outputs/flutter-apk/app-release.apk
 ```
 
 - Cần có mạng (Firestore + Firebase Auth). Cấu hình Firebase đã nằm sẵn trong code:
   `android/app/google-services.json` (Android) và `lib/firebase_options.dart` (web), nên clone về là chạy được.
+- Android build cần JDK 21 (thư viện MapLibre); có thể dùng JBR của Android Studio. Rules Emulator cũng cần Java 21. Bộ test Flutter hiện có 97 test; bộ test Rules dùng Node 18+ và Firebase CLI, không cần npm dependency bổ sung.
 - Bản đồ màn Cửa hàng dùng Goong nên cần key: copy `.env.example` thành `.env`, dán Maptiles key (lấy ở
   account.goong.io) vào `GOONG_MAPTILES_KEY=`. File `.env` không commit. Chạy bằng Android Studio thì thêm
   `--dart-define-from-file=.env` vào ô *Additional run args* của cấu hình chạy. Thiếu key thì app vẫn chạy, ô bản đồ báo thiếu key.
@@ -60,6 +62,10 @@ Bản web dùng chung database Firestore với điện thoại, nên có thể m
 
 ### Tài liệu (thư mục `docs/`)
 
+- [Phase mới và demo](docs/PHASE_DEMO.md): loyalty, tìm/lọc đơn, đánh giá sau mua, kiểm thử và triển khai Rules.
+- [Bằng chứng đóng góp](docs/CONTRIBUTION_EVIDENCE.md): commit, phần việc và cách tính tỷ lệ; 25% công việc là đề xuất để nhóm thống nhất.
+- [Phụ lục báo cáo](docs/REPORT_ADDENDUM.md): nội dung cập nhật cho `SampleProjectReport.docx`.
+
 - `Technical_Report_MocCafe.docx`: báo cáo kỹ thuật (tiếng Anh, đủ 7 mục theo đề) — điền tên/MSSV rồi xuất PDF để nộp.
   **Chưa cập nhật** phần database theo Firestore (vẫn mô tả SQLite).
 - `Phan_cong_cong_viec_nhom.docx`: phân công 4 người (25% mỗi người), file cần đọc, câu hỏi hay gặp, kịch bản demo.
@@ -85,6 +91,9 @@ Bản web dùng chung database Firestore với điện thoại, nên có thể m
 | + | Quản lý sản phẩm | `admin/admin_products_screen` | Thêm / sửa món, danh mục, topping, hết hàng / ngừng bán, xóa nhiều món + khôi phục |
 | + | Chế độ tối | `customer/profile_screen` | Lưu bằng SharedPreferences |
 | + | Chỉnh sửa thông tin cá nhân | `customer/edit_profile_screen` | Sửa họ tên, SĐT; đổi mật khẩu phải nhập đúng mật khẩu cũ (Firebase xác thực lại); email không đổi |
+| + | Khách hàng thân thiết | `customer/loyalty_hub_screen` | Yêu thích món realtime; tích 1 điểm/10.000đ đơn hoàn tất; 1 điểm giảm 1.000đ, tối đa 20% đơn; tự hoàn điểm khi hủy |
+| + | Tìm/lọc đơn | Lịch sử đơn và quản lý đơn | Mã đơn có/không `#`, nhóm trạng thái; admin tìm thêm tên không dấu và SĐT; nút xóa bộ lọc khi không khớp |
+| + | Đánh giá sau mua | Chi tiết đơn và chi tiết món | Khách chấm 1–5 sao, nhận xét tối đa 500 ký tự cho món của đơn hoàn tất; realtime và không ghi trùng |
 
 Luồng trạng thái đơn: `Chờ xác nhận → Đã xác nhận → Đang pha chế → Đang giao → Hoàn thành` (hoặc `Đã hủy` khi còn chờ xác nhận).
 
@@ -117,6 +126,7 @@ Cloud Firestore + Firebase Auth (cloud)      SharedPreferences (dark mode, trên
 | `ChatProvider` | Nghe tin nhắn và danh sách cuộc trò chuyện (chủ quán) |
 | `ThemeProvider` | Sáng / tối |
 | `DashboardProvider`, `ProductManagementProvider` | Thống kê và quản lý menu (chỉ ở màn chủ quán) |
+| `FavoriteProvider`, `LoyaltyProvider` | Yêu thích realtime, số dư và lịch sử tích/dùng/hoàn điểm |
 
 "Nghe" = `stream.listen(...)` trên `snapshots()` của Firestore. Provider hủy nghe khi đăng xuất (`clear()`),
 trước khi Firebase Auth đăng xuất, để Security Rules không báo lỗi thiếu quyền.
@@ -161,15 +171,19 @@ Firestore lưu dạng **collection → document** (giống JSON), không có b�
 | `categories/{id}` | id, name | id là số (`"1"`, `"2"`…) |
 | `products/{id}` | id, categoryId, name, description, price, imageUrl, status (`available`/`soldOut`/`hidden`), deleted, previousStatus, deletedAt | Xóa mềm: `deleted = true`, giữ `previousStatus` để khôi phục |
 | `toppings/{id}` | id, name, price | |
-| `orders/{id}` | id, userId, customerName, phone, address, note, paymentMethod, isPaid, totalPrice, status, createdAt, **items[]** | Các món nằm luôn trong đơn (mảng `items`: productId, productName, size, toppings, sugar, ice, note, quantity, unitPrice) thay cho bảng order_items. `productId`, `sugar`, `ice` mới thêm: đơn cũ thiếu thì đọc ra mặc định (không đặt lại được / không hiện mức đường đá) |
+| `orders/{id}` | id, userId, customerName, phone, address, note, paymentMethod, isPaid, subtotal, pointsUsed, discountAmount, totalPrice, loyaltyAwarded, pointsRefunded, status, createdAt, **items[]** | Các món nằm luôn trong đơn (mảng `items`: productId, productName, size, toppings, sugar, ice, note, quantity, unitPrice). Field loyalty thiếu trên đơn cũ dùng mặc định an toàn. |
 | `chats/{customerUid}` | customerName, lastMessage, lastTime | Danh sách cuộc trò chuyện của chủ quán đọc thẳng collection này (thay JOIN + GROUP BY) |
 | `chats/{customerUid}/messages/{auto}` | sender (`customer`/`shop`), content, createdAt | |
 | `counters/{name}` | value | Bộ đếm cấp mã đơn `#1, #2…` và id món / danh mục / topping mới, tăng trong transaction |
+| `users/{uid}/favorites/{productId}` | productId, createdAt | Món yêu thích của riêng khách |
+| `loyaltyAccounts/{uid}` | balance, lifetimeEarned, updatedAt, lastMutationKey, lastOrderId, lastMutationType | Tài khoản điểm; chỉ đổi cùng transaction đơn hàng và ledger |
+| `loyaltyAccounts/{uid}/transactions/{orderId_action}` | orderId, type, points, createdAt | Sổ điểm bất biến; `earn`, `redeem`, `refund` |
+| `products/{productId}/reviews/{orderId}` | userId, orderId, itemIndex, rating, comment, createdAt | Mua hàng đã hoàn tất; 1 review/món/đơn; số sao 1–5 và nhận xét tối đa 500 ký tự; không sửa/xóa |
 
 - `items` lưu **tên + giá tại thời điểm đặt** → quán đổi giá menu thì lịch sử đơn vẫn đúng.
 - Giá size cố định trong code (`utils/constants.dart`): S +0đ, M +6.000đ, L +10.000đ. Mức đường
   (100% / 70% / 50% / 30% / 0%) và mức đá (Bình thường / Ít đá / Không đá) cũng ở đó, không đổi giá.
-- Các field mới không bắt buộc nên **không phải sửa `firestore.rules`**.
+- Đơn cũ vẫn đọc được; bản app có loyalty và đánh giá cần deploy `firestore.rules` mới trước khi nghiệm thu trên Firebase thật.
 - Ảnh món nằm ở `assets/images/products/` (khai báo trong `pubspec.yaml`), trường `imageUrl` lưu đường dẫn
   `assets/...` (hoặc link `http...`); thiếu file / lỗi tải thì app hiện icon theo danh mục.
 - Đặt đơn, đổi trạng thái, xóa / khôi phục món chạy trong **transaction**: đọc lại dữ liệu mới nhất rồi mới ghi,
@@ -241,3 +255,4 @@ Chuẩn bị 2 máy: máy A (điện thoại / máy ảo) đăng nhập khách, 
 - Thống kê đọc mọi đơn trong khoảng thời gian rồi cộng trên máy chủ quán; nhiều đơn thì nên dùng aggregate query.
 - Chủ quán xác định bằng 1 email cố định; nhiều nhân viên thì nên dùng custom claims của Firebase Auth.
 - Thanh toán chỉ là giả lập → có thể tích hợp SDK MoMo / VNPay.
+- Không dùng Cloud Functions: Security Rules bảo vệ quan hệ điểm–đơn và giới hạn giảm; việc đối chiếu toàn bộ giá từng item với menu vẫn được repository kiểm tra phía client.
