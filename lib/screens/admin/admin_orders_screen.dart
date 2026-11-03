@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
+import '../../utils/order_filter.dart';
 import '../../widgets/empty_view.dart';
 import '../../widgets/max_width_box.dart';
 import '../../widgets/order_card.dart';
@@ -20,6 +21,8 @@ class AdminOrdersScreen extends StatefulWidget {
 
 class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   OrderStatus? _filter; // null = tất cả.
+  final _searchController = TextEditingController();
+  String _query = '';
 
   @override
   void initState() {
@@ -33,12 +36,29 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _filter = null;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final orderProvider = context.watch<OrderProvider>();
     final allOrders = orderProvider.orders;
-    final orders = _filter == null
-        ? allOrders
-        : allOrders.where((o) => o.status == _filter).toList();
+    final orders = filterOrders(
+      allOrders,
+      query: _query,
+      status: _filter,
+      includeCustomerDetails: true,
+    );
 
     return MaxWidthBox(
       maxWidth: 800,
@@ -58,6 +78,29 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     builder: (_) => const AdminDashboardScreen(),
                   ),
                 ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+            child: TextField(
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              onChanged: (value) => setState(() => _query = value),
+              onSubmitted: (_) => FocusScope.of(context).unfocus(),
+              decoration: InputDecoration(
+                hintText: 'Tìm mã đơn, tên khách hoặc số điện thoại',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Xóa tìm kiếm',
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.clear),
+                      ),
               ),
             ),
           ),
@@ -112,7 +155,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadOrders,
-              child: _buildOrderList(orderProvider.isLoading, orders),
+              child: _buildOrderList(
+                orderProvider.isLoading,
+                orders,
+                allOrders.isNotEmpty,
+              ),
             ),
           ),
         ],
@@ -120,15 +167,29 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     );
   }
 
-  Widget _buildOrderList(bool isLoading, List<Order> orders) {
+  Widget _buildOrderList(
+    bool isLoading,
+    List<Order> orders,
+    bool hasAnyOrders,
+  ) {
     if (isLoading && orders.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
     if (orders.isEmpty) {
       return ListView(
-        children: const [
-          SizedBox(height: 120),
-          EmptyView(icon: Icons.inbox, message: 'Không có đơn hàng nào'),
+        children: [
+          const SizedBox(height: 80),
+          hasAnyOrders
+              ? EmptyView(
+                  icon: Icons.search_off,
+                  message: 'Không tìm thấy đơn phù hợp',
+                  onRetry: _clearFilters,
+                  retryLabel: 'Xóa bộ lọc',
+                )
+              : const EmptyView(
+                  icon: Icons.inbox,
+                  message: 'Không có đơn hàng nào',
+                ),
         ],
       );
     }

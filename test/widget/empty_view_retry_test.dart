@@ -60,4 +60,20 @@ void main() {
     expect(normal, const Duration(milliseconds: 200));
     expect(reduced, Duration.zero);
   });
+
+  testWidgets('Màn lọc rỗng có thể đổi nhãn nút hành động', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: EmptyView(
+          icon: Icons.search_off,
+          message: 'Không tìm thấy đơn phù hợp',
+          onRetry: () {},
+          retryLabel: 'Xóa bộ lọc',
+        ),
+      ),
+    );
+
+    expect(find.text('Xóa bộ lọc'), findsOneWidget);
+    expect(find.text('Thử lại'), findsNothing);
+  });
 }

@@ -6,12 +6,14 @@ class EmptyView extends StatelessWidget {
   final IconData icon;
   final String message;
   final VoidCallback? onRetry;
+  final String retryLabel;
 
   const EmptyView({
     super.key,
     required this.icon,
     required this.message,
     this.onRetry,
+    this.retryLabel = 'Thử lại',
   });
 
   @override
@@ -37,9 +39,7 @@ class EmptyView extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyLarge
+                style: Theme.of(context).textTheme.bodyLarge
                     ?.copyWith(color: colors.onSurfaceVariant),
               ),
               if (onRetry != null) ...[
@@ -47,7 +47,7 @@ class EmptyView extends StatelessWidget {
                 FilledButton.tonalIcon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Thử lại'),
+                  label: Text(retryLabel),
                 ),
               ],
             ],

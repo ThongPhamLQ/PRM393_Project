@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
+import '../../utils/order_filter.dart';
 import '../../widgets/empty_view.dart';
 import '../../widgets/max_width_box.dart';
 import '../../widgets/order_card.dart';
@@ -18,6 +19,9 @@ class OrderHistoryScreen extends StatefulWidget {
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   late final String _userId;
+  final _searchController = TextEditingController();
+  String _query = '';
+  CustomerOrderGroup _group = CustomerOrderGroup.all;
 
   @override
   void initState() {
@@ -32,14 +36,33 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _group = CustomerOrderGroup.all;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final orderProvider = context.watch<OrderProvider>();
-    final orders = orderProvider.orders;
+    final allOrders = orderProvider.orders;
+    final orders = filterOrders(
+      allOrders,
+      query: _query,
+      customerGroup: _group,
+    );
 
     Widget body;
-    if (orderProvider.isLoading && orders.isEmpty) {
+    if (orderProvider.isLoading && allOrders.isEmpty) {
       body = const Center(child: CircularProgressIndicator());
-    } else if (orders.isEmpty) {
+    } else if (allOrders.isEmpty) {
       final error = orderProvider.loadError;
       // Bọc trong ListView để vẫn kéo xuống làm mới được
       body = ListView(
@@ -56,6 +79,18 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   icon: Icons.receipt_long,
                   message: 'Bạn chưa có đơn hàng nào',
                 ),
+        ],
+      );
+    } else if (orders.isEmpty) {
+      body = ListView(
+        children: [
+          const SizedBox(height: 80),
+          EmptyView(
+            icon: Icons.search_off,
+            message: 'Không tìm thấy đơn phù hợp',
+            onRetry: _clearFilters,
+            retryLabel: 'Xóa bộ lọc',
+          ),
         ],
       );
     } else {
@@ -82,10 +117,69 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Đơn hàng của tôi')),
       // Kéo xuống để tải lại (xem trạng thái mới nhất)
-      body: RefreshIndicator(
-        onRefresh: _loadOrders,
-        child: MaxWidthBox(maxWidth: 800, child: body),
+      body: MaxWidthBox(
+        maxWidth: 800,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                onChanged: (value) => setState(() => _query = value),
+                onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                decoration: InputDecoration(
+                  hintText: 'Tìm theo mã đơn, VD: #23',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Xóa tìm kiếm',
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                          icon: const Icon(Icons.clear),
+                        ),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 56,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                children: [
+                  for (final group in CustomerOrderGroup.values)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ChoiceChip(
+                        label: Text(
+                          '${_groupLabel(group)} (${filterOrders(allOrders, customerGroup: group).length})',
+                        ),
+                        selected: _group == group,
+                        onSelected: (_) => setState(() => _group = group),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(onRefresh: _loadOrders, child: body),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  String _groupLabel(CustomerOrderGroup group) => switch (group) {
+    CustomerOrderGroup.all => 'Tất cả',
+    CustomerOrderGroup.processing => 'Đang xử lý',
+    CustomerOrderGroup.completed => 'Hoàn thành',
+    CustomerOrderGroup.cancelled => 'Đã hủy',
+  };
 }
