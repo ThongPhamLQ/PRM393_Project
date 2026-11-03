@@ -25,6 +25,42 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
+    function validNewOrder(data) {
+      return data.keys().hasAll(['id','userId','customerName','phone','address','note',
+          'paymentMethod','isPaid','subtotal','pointsUsed','discountAmount','totalPrice',
+          'loyaltyAwarded','pointsRefunded','status','createdAt','items'])
+        && data.keys().hasOnly(['id','userId','customerName','phone','address','note',
+          'paymentMethod','isPaid','subtotal','pointsUsed','discountAmount','totalPrice',
+          'loyaltyAwarded','pointsRefunded','status','createdAt','items'])
+        && data.id is int && data.userId is string
+        && data.customerName is string && data.phone is string && data.address is string
+        && data.note is string && data.isPaid is bool && data.createdAt is timestamp
+        && data.paymentMethod in ['cash','momo','card']
+        && data.subtotal is int && data.subtotal > 0 && data.totalPrice is int
+        && data.pointsUsed is int && data.discountAmount is int
+        && data.items is list && data.items.size() > 0;
+    }
+
+    function accountMatches(uid, orderId, action, points) {
+      let after = getAfter(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data;
+      let key = string(orderId) + '_' + action;
+      let entry = getAfter(/databases/$(database)/documents/loyaltyAccounts/$(uid)/transactions/$(key)).data;
+      return after.lastOrderId == orderId && after.lastMutationType == action
+        && after.lastMutationKey == key
+        && entry.orderId == orderId && entry.type == action && entry.points == points;
+    }
+
+    function validStatusChange(orderId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let used = before.get('pointsUsed', 0);
+      let earned = int(before.totalPrice / 10000);
+      return after.get('loyaltyAwarded', false) == (before.get('loyaltyAwarded', false) || after.status == 'completed')
+        && after.get('pointsRefunded', false) == (before.get('pointsRefunded', false) || (after.status == 'cancelled' && used > 0))
+        && (after.status != 'completed' || earned == 0 || accountMatches(before.userId, int(orderId), 'earn', earned))
+        && (after.status != 'cancelled' || used == 0 || accountMatches(before.userId, int(orderId), 'refund', used));
+    }
+
     // Hồ sơ người dùng: tự tạo / sửa tên + SĐT của mình, không tự nâng vai trò
     match /users/{uid} {
       allow read: if isSelf(uid) || isAdmin();
@@ -32,6 +68,15 @@ service cloud.firestore {
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.role == (isAdmin() ? 'admin' : 'customer');
       allow update: if isSelf(uid) && onlyChanges(['name', 'phone']);
+
+      match /favorites/{productId} {
+        allow read: if isSelf(uid);
+        allow create: if isSelf(uid)
+          && request.resource.data.productId == int(productId)
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.keys().hasOnly(['productId', 'createdAt']);
+        allow delete: if isSelf(uid);
+      }
 
       // Thông báo: khách tự ghi (đặt / hủy đơn), chủ quán ghi khi đổi trạng thái đơn
       match /notifications/{notificationId} {
@@ -49,6 +94,27 @@ service cloud.firestore {
     match /products/{id} {
       allow read: if signedIn();
       allow write: if isAdmin();
+      match /reviews/{orderId} {
+        allow read: if signedIn();
+        allow create: if signedIn() && !isAdmin() && validReview();
+        allow update, delete: if false;
+
+        function validReview() {
+          let data = request.resource.data;
+          let order = get(/databases/$(database)/documents/orders/$(orderId)).data;
+          return data.keys().hasAll(['userId', 'orderId', 'itemIndex', 'rating', 'comment', 'createdAt'])
+            && data.keys().hasOnly(['userId', 'orderId', 'itemIndex', 'rating', 'comment', 'createdAt'])
+            && data.userId == request.auth.uid
+            && data.orderId == int(orderId)
+            && data.rating is int && data.rating >= 1 && data.rating <= 5
+            && data.comment is string && data.comment.size() <= 500
+            && data.createdAt == request.time
+            && order.userId == request.auth.uid && order.status == 'completed'
+            && data.itemIndex is int && data.itemIndex >= 0
+            && data.itemIndex < order.items.size()
+            && order.items[data.itemIndex].productId == int(id);
+        }
+      }
     }
     match /toppings/{id} {
       allow read: if signedIn();
@@ -69,14 +135,119 @@ service cloud.firestore {
       allow read: if isAdmin()
         || (signedIn() && resource.data.userId == request.auth.uid);
       allow create: if signedIn()
+        && validNewOrder(request.resource.data)
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.id == int(orderId)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.subtotal >= request.resource.data.totalPrice
+        && request.resource.data.totalPrice >= 0
+        && request.resource.data.pointsUsed >= 0
+        && request.resource.data.discountAmount == request.resource.data.pointsUsed * 1000
+        && request.resource.data.totalPrice == request.resource.data.subtotal - request.resource.data.discountAmount
+        && request.resource.data.discountAmount * 5 <= request.resource.data.subtotal
+        && request.resource.data.loyaltyAwarded == false
+        && request.resource.data.pointsRefunded == false
+        && (request.resource.data.pointsUsed == 0
+          || (
+            getAfter(/databases/$(database)/documents/loyaltyAccounts/$(request.auth.uid)).data.lastOrderId == request.resource.data.id
+            && getAfter(/databases/$(database)/documents/loyaltyAccounts/$(request.auth.uid)).data.lastMutationType == 'redeem'
+            && get(/databases/$(database)/documents/loyaltyAccounts/$(request.auth.uid)).data.balance
+              - getAfter(/databases/$(database)/documents/loyaltyAccounts/$(request.auth.uid)).data.balance
+              == request.resource.data.pointsUsed
+          ));
       // Chủ quán đổi trạng thái; khách chỉ được hủy đơn còn "Chờ xác nhận"
-      allow update: if onlyChanges(['status'])
-        && (isAdmin()
+      allow update: if onlyChanges(['status', 'loyaltyAwarded', 'pointsRefunded'])
+        && validStatusChange(orderId)
+        && ((isAdmin() && (
+              (resource.data.status == 'pending' && request.resource.data.status in ['confirmed','cancelled'])
+              || (resource.data.status == 'confirmed' && request.resource.data.status == 'preparing')
+              || (resource.data.status == 'preparing' && request.resource.data.status == 'delivering')
+              || (resource.data.status == 'delivering' && request.resource.data.status == 'completed')))
             || (signedIn() && resource.data.userId == request.auth.uid
                 && resource.data.status == 'pending'
                 && request.resource.data.status == 'cancelled'));
+    }
+
+    match /loyaltyAccounts/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      allow create, update: if validLoyaltyMutation(uid);
+
+      function mutationOrder() {
+        return getAfter(/databases/$(database)/documents/orders/$(request.resource.data.lastOrderId)).data;
+      }
+
+      function validLoyaltyMutation(uid) {
+        let order = mutationOrder();
+        let data = request.resource.data;
+        let old = exists(/databases/$(database)/documents/loyaltyAccounts/$(uid))
+          ? get(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data
+          : {'balance': 0, 'lifetimeEarned': 0};
+        let orderPath = /databases/$(database)/documents/orders/$(data.lastOrderId);
+        let previous = exists(orderPath) ? get(orderPath).data : {};
+        let key = string(data.lastOrderId) + '_' + data.lastMutationType;
+        let points = data.lastMutationType == 'earn' ? int(order.totalPrice / 10000) : order.pointsUsed;
+        return (isSelf(uid) || isAdmin())
+          && data.keys().hasOnly(['balance','lifetimeEarned','updatedAt','lastMutationKey','lastOrderId','lastMutationType'])
+          && data.balance is int && data.balance >= 0
+          && data.lifetimeEarned is int && data.lastOrderId is int
+          && data.updatedAt == request.time && data.lastMutationKey == key
+          && !exists(/databases/$(database)/documents/loyaltyAccounts/$(uid)/transactions/$(key))
+          && accountMatches(uid, data.lastOrderId, data.lastMutationType, points)
+          && order.userId == uid
+          && (
+            (data.lastMutationType == 'redeem'
+              && !exists(orderPath)
+              && order.status == 'pending'
+              && order.pointsUsed > 0
+              && order.pointsUsed == old.balance - data.balance
+              && data.lifetimeEarned == old.lifetimeEarned)
+            ||
+            (data.lastMutationType == 'refund'
+              && previous.status == 'pending' && !previous.get('pointsRefunded', false)
+              && order.status == 'cancelled'
+              && order.pointsRefunded == true
+              && order.pointsUsed > 0
+              && order.pointsUsed == data.balance - old.balance
+              && data.lifetimeEarned == old.lifetimeEarned)
+            ||
+            (isAdmin() && data.lastMutationType == 'earn'
+              && previous.status == 'delivering' && !previous.get('loyaltyAwarded', false)
+              && order.status == 'completed' && order.loyaltyAwarded == true
+              && points > 0 && data.balance == old.balance + points
+              && data.lifetimeEarned == old.lifetimeEarned + points)
+          );
+      }
+
+      match /transactions/{transactionId} {
+        allow read: if isSelf(uid) || isAdmin();
+        allow create: if (isSelf(uid) || isAdmin())
+          && request.resource.data.keys().hasOnly(['orderId','type','points','createdAt'])
+          && request.resource.data.orderId is int
+          && request.resource.data.points is int
+          && request.resource.data.points > 0
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.type in ['earn', 'redeem', 'refund']
+          && (request.resource.data.type != 'earn' || isAdmin())
+          && getAfter(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data.lastOrderId == request.resource.data.orderId
+          && getAfter(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data.lastMutationType == request.resource.data.type
+          && transactionId == string(request.resource.data.orderId) + '_' + request.resource.data.type
+          && (
+            (request.resource.data.type == 'redeem'
+              && request.resource.data.points
+                == get(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data.balance
+                  - getAfter(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data.balance)
+            ||
+            (request.resource.data.type == 'refund'
+              && request.resource.data.points
+                == getAfter(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data.balance
+                  - get(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data.balance)
+            || (request.resource.data.type == 'earn'
+              && request.resource.data.points == getAfter(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data.balance
+                - (exists(/databases/$(database)/documents/loyaltyAccounts/$(uid))
+                  ? get(/databases/$(database)/documents/loyaltyAccounts/$(uid)).data.balance : 0))
+          );
+        allow update, delete: if false;
+      }
     }
 
     // Chat: chats/{uid của khách} chỉ khách đó và chủ quán đọc / ghi
