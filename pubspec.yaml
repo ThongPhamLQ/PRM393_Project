@@ -53,6 +53,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
 
 # Gói sqlite3 (đi kèm sqflite_common_ffi_web) mặc định nhúng thêm libsqlite3.so
 # (~1.6 MB mỗi kiến trúc CPU) vào APK. Android không dùng tới: sqflite dùng SQLite

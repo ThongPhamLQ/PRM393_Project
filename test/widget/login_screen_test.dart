@@ -23,7 +23,9 @@ void main() {
     expect(find.byKey(const Key('loginButton')), findsOneWidget);
   });
 
-  testWidgets('Bấm Đăng nhập khi để trống -> hiện lỗi dưới các ô', (tester) async {
+  testWidgets('Bấm Đăng nhập khi để trống -> hiện lỗi dưới các ô', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildLoginScreen());
 
     // Act: bấm nút khi chưa nhập gì
@@ -35,18 +37,25 @@ void main() {
     expect(find.text('Mật khẩu không được để trống'), findsOneWidget);
   });
 
-  testWidgets('Nhập email sai định dạng -> báo "Email không hợp lệ"', (tester) async {
+  testWidgets('Nhập email sai định dạng -> báo "Email không hợp lệ"', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildLoginScreen());
 
     await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'abc');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Mật khẩu'), '123456');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Mật khẩu'),
+      '123456',
+    );
     await tester.tap(find.byKey(const Key('loginButton')));
     await tester.pump();
 
     expect(find.text('Email không hợp lệ'), findsOneWidget);
   });
 
-  testWidgets('Bấm chip "Khách hàng" -> tự điền tài khoản demo', (tester) async {
+  testWidgets('Bấm chip "Khách hàng" -> tự điền tài khoản demo', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildLoginScreen());
 
     await tester.tap(find.text('Khách hàng'));
