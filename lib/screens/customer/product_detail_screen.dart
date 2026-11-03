@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 
 import '../../models/cart_item.dart';
 import '../../models/product.dart';
+import '../../repositories/review_repository.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/menu_provider.dart';
+import '../../providers/favorite_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/format.dart';
+import '../../utils/favorite_toggle.dart';
 import '../../widgets/brand_block.dart';
 import '../../widgets/cart_button.dart';
 import '../../widgets/max_width_box.dart';
@@ -15,12 +18,18 @@ import '../../widgets/product_image.dart';
 import '../../widgets/quantity_stepper.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/total_bar.dart';
+import '../../widgets/product_reviews.dart';
 
 // Chi tiết món: chọn size, topping, ghi chú, số lượng rồi thêm vào giỏ
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
+  final ReviewRepository? reviewRepository;
 
-  const ProductDetailScreen({super.key, required this.product});
+  const ProductDetailScreen({
+    super.key,
+    required this.product,
+    this.reviewRepository,
+  });
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
@@ -97,7 +106,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     cart.addItem(item);
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Đã thêm ${item.quantity} ly ${widget.product.name} vào giỏ'),
+        content: Text(
+          'Đã thêm ${item.quantity} ly ${widget.product.name} vào giỏ',
+        ),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -109,8 +120,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final toppings = context.watch<MenuProvider>().toppings;
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final priceStyle =
-        textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant);
+    final priceStyle = textTheme.bodyMedium?.copyWith(
+      color: colors.onSurfaceVariant,
+    );
 
     // Cùng tag Hero với thẻ món ở Menu -> ảnh bay từ thẻ sang đây
     final image = Hero(
@@ -144,6 +156,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     ];
 
     final options = <Widget>[
+      SectionCard(
+        title: 'Đánh giá món',
+        child: ProductReviews(
+          productId: product.id,
+          repository: widget.reviewRepository,
+        ),
+      ),
+      const SizedBox(height: 12),
       // ===== Chọn size: chỉ chọn 1 -> RadioGroup, mỗi size là 1 hình ly =====
       SectionCard(
         title: 'Chọn size',
@@ -181,8 +201,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               value: _selectedToppings.contains(topping),
               controlAffinity: ListTileControlAffinity.leading,
               title: Text(topping.name),
-              secondary:
-                  Text('+${formatVnd(topping.price)}', style: priceStyle),
+              secondary: Text(
+                '+${formatVnd(topping.price)}',
+                style: priceStyle,
+              ),
               onChanged: (checked) {
                 setState(() {
                   if (checked == true) {
@@ -242,8 +264,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               QuantityStepper(
                 quantity: _quantity,
                 // Số lượng tối thiểu là 1 -> null để khóa nút
-                onDecrease:
-                    _quantity > 1 ? () => setState(() => _quantity--) : null,
+                onDecrease: _quantity > 1
+                    ? () => setState(() => _quantity--)
+                    : null,
                 onIncrease: () => setState(() => _quantity++),
               ),
             ],
@@ -258,7 +281,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         backgroundColor: colors.onPrimaryFixedVariant,
         foregroundColor: colors.primaryFixed,
         title: Text(product.name),
-        actions: const [CartButton()],
+        actions: [
+          Consumer<FavoriteProvider>(
+            builder: (context, favorites, _) => IconButton(
+              tooltip: favorites.contains(product.id)
+                  ? 'Bỏ yêu thích'
+                  : 'Thêm yêu thích',
+              onPressed: () => toggleFavorite(context, product.id),
+              icon: Icon(
+                favorites.contains(product.id)
+                    ? Icons.favorite
+                    : Icons.favorite_border,
+              ),
+            ),
+          ),
+          const CartButton(),
+        ],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -365,16 +403,17 @@ class _SizeOption extends StatelessWidget {
         toggleable: false,
         autofocus: false,
         focusNode: focusNode,
-        mouseCursor:
-            const WidgetStatePropertyAll<MouseCursor>(SystemMouseCursors.click),
+        mouseCursor: const WidgetStatePropertyAll<MouseCursor>(
+          SystemMouseCursors.click,
+        ),
         builder: (context, state) {
           final selected = state.value ?? false;
           // Viền: đang chọn -> primary; đang focus bằng bàn phím -> onSurface
           final ringColor = selected
               ? colors.primary
               : state.states.contains(WidgetState.focused)
-                  ? colors.onSurface
-                  : colors.outlineVariant;
+              ? colors.onSurface
+              : colors.outlineVariant;
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Column(
@@ -408,8 +447,9 @@ class _SizeOption extends StatelessWidget {
                 Text(
                   extraPrice == 0 ? 'Mặc định' : '+${formatVnd(extraPrice)}',
                   textAlign: TextAlign.center,
-                  style: textTheme.bodySmall
-                      ?.copyWith(color: colors.onSurfaceVariant),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
