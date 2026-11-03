@@ -5,6 +5,8 @@ import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/menu_provider.dart';
+import '../providers/favorite_provider.dart';
+import '../providers/loyalty_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/order_provider.dart';
 
@@ -40,6 +42,8 @@ Future<void> confirmLogout(BuildContext context) async {
   context.read<NotificationProvider>().clear();
   context.read<ChatProvider>().clear();
   context.read<MenuProvider>().clear();
+  context.read<FavoriteProvider>().clear();
+  context.read<LoyaltyProvider>().clear();
 
   await auth.logout(); // Firebase Auth xóa phiên đăng nhập trên máy
 

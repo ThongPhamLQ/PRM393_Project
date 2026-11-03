@@ -1,12 +1,16 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/menu_provider.dart';
+import '../../providers/favorite_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/constants.dart';
+import '../../utils/favorite_toggle.dart';
 import '../../widgets/active_order_card.dart';
 import '../../widgets/brand_block.dart';
 import '../../widgets/cart_button.dart';
@@ -25,7 +29,10 @@ class MenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final menu = context.watch<MenuProvider>();
-    final products = menu.filteredProducts;
+    final favorites = context.watch<FavoriteProvider>();
+    final products = menu.favoritesOnly
+        ? menu.filteredProducts.where((p) => favorites.contains(p.id)).toList()
+        : menu.filteredProducts;
     // select: chỉ build lại khi tên người dùng đổi (sau khi sửa thông tin)
     final userName = context.select<AuthProvider, String>(
       (auth) => auth.currentUser?.name ?? '',
@@ -58,7 +65,9 @@ class MenuScreen extends StatelessWidget {
 
     // Tiêu đề mục: danh mục đang chọn, hoặc "Tất cả món"
     final selectedId = menu.selectedCategoryId;
-    final sectionTitle = selectedId == null
+    final sectionTitle = menu.favoritesOnly
+        ? 'Món yêu thích'
+        : selectedId == null
         ? 'Tất cả món'
         : menu.categories.firstWhere((c) => c.id == selectedId).name;
 
@@ -99,13 +108,15 @@ class MenuScreen extends StatelessWidget {
                                     'Xin chào, $userName',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: textTheme.bodyLarge
-                                        ?.copyWith(color: colors.primaryFixedDim),
+                                    style: textTheme.bodyLarge?.copyWith(
+                                      color: colors.primaryFixedDim,
+                                    ),
                                   ),
                                   Text(
                                     'Hôm nay bạn muốn uống gì?',
-                                    style: textTheme.headlineSmall
-                                        ?.copyWith(color: colors.primaryFixed),
+                                    style: textTheme.headlineSmall?.copyWith(
+                                      color: colors.primaryFixed,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -164,6 +175,22 @@ class MenuScreen extends StatelessWidget {
                 ),
               ),
 
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: FilterChip(
+                    avatar: Icon(
+                      menu.favoritesOnly
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                    ),
+                    label: const Text('Chỉ món yêu thích'),
+                    selected: menu.favoritesOnly,
+                    onSelected: menu.setFavoritesOnly,
+                  ),
+                ),
+              ),
+
               // Tiêu đề mục in hoa + số món đang hiện
               SliverToBoxAdapter(
                 child: Padding(
@@ -173,8 +200,9 @@ class MenuScreen extends StatelessWidget {
                       Expanded(child: SectionHeader(sectionTitle)),
                       Text(
                         '${products.length} món',
-                        style: textTheme.bodyMedium
-                            ?.copyWith(color: colors.onSurfaceVariant),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -211,7 +239,8 @@ class MenuScreen extends StatelessWidget {
                       mainAxisSpacing: 12,
                       // Ảnh vuông + phần chữ cao theo cỡ chữ của máy -> không tràn
                       // (116 = lề + chữ + nút + của ProductCard)
-                      mainAxisExtent: tileWidth +
+                      mainAxisExtent:
+                          tileWidth +
                           MediaQuery.textScalerOf(context).scale(116),
                     ),
                     itemCount: products.length,
@@ -220,6 +249,8 @@ class MenuScreen extends StatelessWidget {
                       return ProductCard(
                         key: ValueKey(product.id),
                         product: product,
+                        isFavorite: favorites.contains(product.id),
+                        onFavorite: () => toggleFavorite(context, product.id),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -352,8 +383,9 @@ class _MenuBanner extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             'Cà phê, trà sữa, trà trái cây và đá xay pha tươi tại $shopName',
-                            style: textTheme.bodyMedium
-                                ?.copyWith(color: colors.onPrimaryFixedVariant),
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colors.onPrimaryFixedVariant,
+                            ),
                           ),
                         ],
                       ),

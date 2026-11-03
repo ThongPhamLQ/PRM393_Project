@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import '../../models/cart_item.dart';
 
 import '../../models/order.dart';
+import '../../models/loyalty.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
+import '../../providers/loyalty_provider.dart';
 import '../../utils/format.dart';
 import '../../utils/validators.dart';
 import '../../widgets/fake_payment_dialog.dart';
@@ -32,6 +34,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _noteController = TextEditingController();
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   bool _isLoading = false;
+  int _pointsToUse = 0;
 
   @override
   void initState() {
@@ -80,11 +83,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         )
         .toList();
-    final amount = items.fold<int>(0, (sum, item) => sum + item.totalPrice);
+    final subtotal = items.fold<int>(0, (sum, item) => sum + item.totalPrice);
+    final loyalty = context.read<LoyaltyProvider>();
+    final pointsToUse = _pointsToUse;
     final paymentMethod = _paymentMethod;
     setState(() => _isLoading = true);
     bool orderSaved = false;
     try {
+      final amount = LoyaltyPolicy.quote(
+        subtotal: subtotal,
+        balance: loyalty.account.balance,
+        requestedPoints: pointsToUse,
+      ).totalPrice;
       if (paymentMethod != PaymentMethod.cash) {
         final paid = await showDialog<bool>(
           context: context,
@@ -103,6 +113,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         address: _addressController.text.trim(),
         note: _noteController.text.trim(),
         paymentMethod: paymentMethod,
+        pointsToUse: pointsToUse,
       );
       orderSaved = true;
       cart.clear(); // Không thể gửi lại đơn vì lỗi thông báo hoặc đóng dialog.
@@ -162,6 +173,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final loyalty = context.watch<LoyaltyProvider>();
+    final maxPoints = loyalty.maxRedeemablePoints(cart.totalPrice);
+    if (_pointsToUse > maxPoints) _pointsToUse = maxPoints;
+    final quote = cart.isEmpty
+        ? const LoyaltyQuote(
+            subtotal: 0,
+            pointsUsed: 0,
+            discountAmount: 0,
+            totalPrice: 0,
+          )
+        : LoyaltyPolicy.quote(
+            subtotal: cart.totalPrice,
+            balance: loyalty.account.balance,
+            requestedPoints: _pointsToUse,
+          );
     final colors = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -224,6 +250,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 12),
 
               SectionCard(
+                title: 'Điểm thành viên',
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Bạn có ${loyalty.account.balance} điểm · tối đa dùng $maxPoints điểm',
+                      ),
+                      if (maxPoints > 0)
+                        Slider(
+                          value: _pointsToUse.toDouble(),
+                          min: 0,
+                          max: maxPoints.toDouble(),
+                          divisions: maxPoints,
+                          label: '$_pointsToUse điểm',
+                          onChanged: _isLoading
+                              ? null
+                              : (value) => setState(
+                                  () => _pointsToUse = value.round(),
+                                ),
+                        ),
+                      if (_pointsToUse > 0)
+                        Text('Giảm ${formatVnd(quote.discountAmount)}'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              SectionCard(
                 title: 'Phương thức thanh toán',
                 child: RadioGroup<PaymentMethod>(
                   groupValue: _paymentMethod,
@@ -277,7 +334,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
       bottomNavigationBar: TotalBar(
         label: 'Tổng thanh toán',
-        amount: cart.totalPrice,
+        amount: quote.totalPrice,
         button: FilledButton(
           onPressed: _isLoading ? null : _placeOrder, // khóa nút khi đang xử lý
           child: _isLoading

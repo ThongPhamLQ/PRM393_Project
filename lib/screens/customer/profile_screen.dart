@@ -9,6 +9,7 @@ import '../../widgets/brand_block.dart';
 import '../../widgets/max_width_box.dart';
 import '../shared/chat_screen.dart';
 import 'edit_profile_screen.dart';
+import 'loyalty_hub_screen.dart';
 
 // Tab Tài khoản: thông tin cá nhân, chế độ tối, đăng xuất
 class ProfileScreen extends StatelessWidget {
@@ -83,13 +84,15 @@ class ProfileScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     user.name,
-                                    style: textTheme.titleLarge
-                                        ?.copyWith(color: colors.primaryFixed),
+                                    style: textTheme.titleLarge?.copyWith(
+                                      color: colors.primaryFixed,
+                                    ),
                                   ),
                                   Text(
                                     user.email,
-                                    style: textTheme.bodyMedium
-                                        ?.copyWith(color: colors.primaryFixedDim),
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: colors.primaryFixedDim,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -123,6 +126,18 @@ class ProfileScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => const EditProfileScreen(),
+                      ),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.loyalty_outlined),
+                    title: const Text('Khách hàng thân thiết'),
+                    subtitle: const Text('Điểm thưởng và món yêu thích'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const LoyaltyHubScreen(),
                       ),
                     ),
                   ),

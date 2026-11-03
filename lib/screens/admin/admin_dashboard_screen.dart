@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/dashboard_stats.dart';
 import '../../providers/dashboard_provider.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -157,6 +156,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               'Tỷ lệ hủy',
                               '${s.cancellationRate.toStringAsFixed(1)}%',
                               Icons.percent,
+                              width,
+                            ),
+                            _metric(
+                              'Giảm bằng điểm',
+                              money(s.loyaltyDiscounts),
+                              Icons.loyalty,
                               width,
                             ),
                           ],

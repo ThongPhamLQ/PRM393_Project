@@ -7,6 +7,8 @@ import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/favorite_provider.dart';
+import 'providers/loyalty_provider.dart';
 import 'providers/menu_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/order_provider.dart';
@@ -42,6 +44,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => FavoriteProvider()),
+        ChangeNotifierProvider(create: (_) => LoyaltyProvider()),
       ],
       child: const CafeApp(),
     ),
@@ -67,13 +71,16 @@ class CafeApp extends StatelessWidget {
     // Sáng: nền kem, thẻ trắng. Tối: 2 bậc surface tương ứng (thẻ sáng hơn nền)
     final isLight = brightness == Brightness.light;
     final canvas = isLight ? colors.surfaceContainer : colors.surface;
-    final card = isLight ? colors.surfaceContainerLowest : colors.surfaceContainer;
+    final card = isLight
+        ? colors.surfaceContainerLowest
+        : colors.surfaceContainer;
     bool isSelected(Set<WidgetState> states) =>
         states.contains(WidgetState.selected);
 
     // Ô nhập dạng viên thuốc: dùng UnderlineInputBorder bo 28 để nhãn nổi nằm
     // trong ô; chỉ hiện vạch dưới khi đang nhập (focus) hoặc khi có lỗi
-    InputBorder pill([BorderSide side = BorderSide.none]) => UnderlineInputBorder(
+    InputBorder pill([BorderSide side = BorderSide.none]) =>
+        UnderlineInputBorder(
           borderRadius: const BorderRadius.all(Radius.circular(28)),
           borderSide: side,
         );
@@ -85,7 +92,9 @@ class CafeApp extends StatelessWidget {
       visualDensity: VisualDensity.standard,
       materialTapTargetSize: MaterialTapTargetSize.padded,
       textTheme: text.copyWith(
-        headlineSmall: text.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+        headlineSmall: text.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
         titleLarge: text.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         titleMedium: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         titleSmall: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
@@ -116,7 +125,8 @@ class CafeApp extends StatelessWidget {
         labelStyle: text.labelLarge?.copyWith(
           fontWeight: FontWeight.w700,
           color: WidgetStateColor.resolveWith(
-            (states) => isSelected(states) ? colors.onPrimary : colors.onSurface,
+            (states) =>
+                isSelected(states) ? colors.onPrimary : colors.onSurface,
           ),
         ),
       ),
@@ -162,7 +172,9 @@ class CafeApp extends StatelessWidget {
         ),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => text.labelMedium?.copyWith(
-            color: isSelected(states) ? colors.primary : colors.onSurfaceVariant,
+            color: isSelected(states)
+                ? colors.primary
+                : colors.onSurfaceVariant,
             fontWeight: isSelected(states) ? FontWeight.w700 : FontWeight.w500,
           ),
         ),

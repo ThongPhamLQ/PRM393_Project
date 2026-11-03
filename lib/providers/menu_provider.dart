@@ -17,6 +17,7 @@ class MenuProvider extends ChangeNotifier {
   List<Topping> _toppings = [];
   int? _selectedCategoryId; // null = "Tất cả"
   String _searchText = '';
+  bool _favoritesOnly = false;
   bool _isLoading = false;
   String? _loadError;
 
@@ -25,6 +26,7 @@ class MenuProvider extends ChangeNotifier {
   List<Topping> get toppings => _toppings;
   int? get selectedCategoryId => _selectedCategoryId;
   String get searchText => _searchText;
+  bool get favoritesOnly => _favoritesOnly;
   bool get isLoading => _isLoading;
   String? get loadError => _loadError;
 
@@ -100,8 +102,16 @@ class MenuProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setFavoritesOnly(bool value) {
+    _favoritesOnly = value;
+    notifyListeners();
+  }
+
   // Gọi khi đăng xuất: ngừng nghe Firestore trước khi mất quyền đọc
-  void clear() => _cancel();
+  void clear() {
+    _favoritesOnly = false;
+    _cancel();
+  }
 
   void _cancel() {
     for (final sub in _subscriptions) {

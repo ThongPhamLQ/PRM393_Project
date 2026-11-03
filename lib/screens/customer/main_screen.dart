@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/menu_provider.dart';
+import '../../providers/favorite_provider.dart';
+import '../../providers/loyalty_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../widgets/adaptive_shell.dart';
@@ -44,6 +46,8 @@ class _MainScreenState extends State<MainScreen> {
       context.read<NotificationProvider>().loadNotifications(userId);
       // Nghe đơn ngay từ đầu để Menu hiện thẻ "Đơn đang thực hiện"
       context.read<OrderProvider>().loadMyOrders(userId);
+      context.read<FavoriteProvider>().load(userId);
+      context.read<LoyaltyProvider>().load(userId);
     });
   }
 
@@ -54,10 +58,10 @@ class _MainScreenState extends State<MainScreen> {
       (provider) => provider.unreadCount,
     );
     Widget bell(IconData icon) => Badge(
-          isLabelVisible: unread > 0,
-          label: Text('$unread'),
-          child: Icon(icon),
-        );
+      isLabelVisible: unread > 0,
+      label: Text('$unread'),
+      child: Icon(icon),
+    );
 
     // Điện thoại: thanh dưới; màn rộng: thanh bên trái (xem AdaptiveShell)
     return AdaptiveShell(

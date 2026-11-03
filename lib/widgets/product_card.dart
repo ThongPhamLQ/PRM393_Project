@@ -10,8 +10,16 @@ import 'product_image.dart';
 class ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
+  final bool isFavorite;
+  final VoidCallback? onFavorite;
 
-  const ProductCard({super.key, required this.product, required this.onTap});
+  const ProductCard({
+    super.key,
+    required this.product,
+    required this.onTap,
+    this.isFavorite = false,
+    this.onFavorite,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,9 +36,26 @@ class ProductCard extends StatelessWidget {
             AspectRatio(
               aspectRatio: 1,
               // Hero: ảnh "bay" sang màn chi tiết món (cùng tag ở 2 màn)
-              child: Hero(
-                tag: productHeroTag(product),
-                child: ProductImage(product: product),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Hero(
+                    tag: productHeroTag(product),
+                    child: ProductImage(product: product),
+                  ),
+                  if (onFavorite != null)
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: IconButton.filledTonal(
+                        tooltip: isFavorite ? 'Bỏ yêu thích' : 'Thêm yêu thích',
+                        onPressed: onFavorite,
+                        icon: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             Expanded(
@@ -50,8 +75,9 @@ class ProductCard extends StatelessWidget {
                       product.description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.bodySmall
-                          ?.copyWith(color: colors.onSurfaceVariant),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                     const Spacer(), // giá luôn nằm đáy thẻ -> các thẻ thẳng hàng
                     Row(
