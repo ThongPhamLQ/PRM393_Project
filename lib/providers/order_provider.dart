@@ -5,9 +5,11 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_notification.dart';
 import '../models/cart_item.dart';
+import '../models/loyalty.dart';
 import '../models/order.dart';
 import '../models/user.dart';
 import '../repositories/notification_repository.dart';
+import '../repositories/loyalty_repository.dart';
 import '../repositories/order_repository.dart';
 import '../repositories/product_management_repository.dart';
 import '../services/notification_service.dart';
@@ -18,11 +20,13 @@ import '../utils/format.dart';
 class OrderProvider extends ChangeNotifier {
   // db: test truyền FakeFirebaseFirestore vào; app thật để trống (dùng Firestore thật)
   OrderProvider({FirebaseFirestore? db})
-    : _orderRepo = OrderRepository(db: db),
+    : _dbOverride = db,
+      _orderRepo = OrderRepository(db: db),
       _notificationRepo = NotificationRepository(db: db),
       _productRepo = ProductManagementRepository(db: db);
 
   final OrderRepository _orderRepo;
+  final FirebaseFirestore? _dbOverride;
   final NotificationRepository _notificationRepo;
   final ProductManagementRepository _productRepo;
   StreamSubscription<List<Order>>? _subscription;
@@ -127,14 +131,25 @@ class OrderProvider extends ChangeNotifier {
     required String address,
     required String note,
     required PaymentMethod paymentMethod,
+    int pointsToUse = 0,
   }) async {
     if (cartItems.isEmpty ||
         cartItems.any((item) => item.quantity <= 0 || item.unitPrice < 0)) {
       throw StateError('Giỏ hàng hoặc người dùng không hợp lệ.');
     }
     await _productRepo.assertCartSellable(cartItems);
-    final total = cartItems.fold<int>(0, (sum, item) => sum + item.totalPrice);
-    if (total <= 0) throw StateError('Tổng tiền đơn hàng không hợp lệ.');
+    final subtotal = cartItems.fold<int>(
+      0,
+      (sum, item) => sum + item.totalPrice,
+    );
+    if (subtotal <= 0) throw StateError('Tổng tiền đơn hàng không hợp lệ.');
+    final account = await LoyaltyRepository(db: _dbOverride)
+        .getAccount(user.id);
+    final quote = LoyaltyPolicy.quote(
+      subtotal: subtotal,
+      balance: account.balance,
+      requestedPoints: pointsToUse,
+    );
 
     final order = Order(
       userId: user.id,
@@ -145,7 +160,10 @@ class OrderProvider extends ChangeNotifier {
       paymentMethod: paymentMethod,
       // Thanh toán online (giả lập) đã thành công trước khi gọi hàm này
       isPaid: paymentMethod != PaymentMethod.cash,
-      totalPrice: total,
+      subtotal: quote.subtotal,
+      pointsUsed: quote.pointsUsed,
+      discountAmount: quote.discountAmount,
+      totalPrice: quote.totalPrice,
       createdAt: DateTime.now(),
     );
 

@@ -62,7 +62,12 @@ class Order {
   final String note;
   final PaymentMethod paymentMethod;
   final bool isPaid;
+  final int subtotal;
+  final int pointsUsed;
+  final int discountAmount;
   final int totalPrice;
+  final bool loyaltyAwarded;
+  final bool pointsRefunded;
   final OrderStatus status;
   final DateTime createdAt;
 
@@ -75,10 +80,15 @@ class Order {
     this.note = '',
     required this.paymentMethod,
     required this.isPaid,
+    int? subtotal,
+    this.pointsUsed = 0,
+    this.discountAmount = 0,
     required this.totalPrice,
+    this.loyaltyAwarded = false,
+    this.pointsRefunded = false,
     this.status = OrderStatus.pending,
     required this.createdAt,
-  });
+  }) : subtotal = subtotal ?? totalPrice;
 
   // Tạo bản sao với trạng thái mới (vì các trường là final)
   Order copyWith({OrderStatus? status}) {
@@ -91,7 +101,12 @@ class Order {
       note: note,
       paymentMethod: paymentMethod,
       isPaid: isPaid,
+      subtotal: subtotal,
+      pointsUsed: pointsUsed,
+      discountAmount: discountAmount,
       totalPrice: totalPrice,
+      loyaltyAwarded: loyaltyAwarded,
+      pointsRefunded: pointsRefunded,
       status: status ?? this.status,
       createdAt: createdAt,
     );
@@ -107,9 +122,16 @@ class Order {
       'note': note,
       'paymentMethod': paymentMethod.name, // lưu dạng chữ: 'cash', 'momo'...
       'isPaid': isPaid, // Firestore có sẵn kiểu bool
+      'subtotal': subtotal,
+      'pointsUsed': pointsUsed,
+      'discountAmount': discountAmount,
       'totalPrice': totalPrice,
+      'loyaltyAwarded': loyaltyAwarded,
+      'pointsRefunded': pointsRefunded,
       'status': status.name,
-      'createdAt': Timestamp.fromDate(createdAt), // kiểu thời gian của Firestore
+      'createdAt': Timestamp.fromDate(
+        createdAt,
+      ), // kiểu thời gian của Firestore
     };
   }
 
@@ -125,7 +147,14 @@ class Order {
         map['paymentMethod'] as String,
       ),
       isPaid: map['isPaid'] == true,
+      subtotal:
+          (map['subtotal'] as num?)?.toInt() ??
+          (map['totalPrice'] as num).toInt(),
+      pointsUsed: (map['pointsUsed'] as num?)?.toInt() ?? 0,
+      discountAmount: (map['discountAmount'] as num?)?.toInt() ?? 0,
       totalPrice: (map['totalPrice'] as num).toInt(),
+      loyaltyAwarded: map['loyaltyAwarded'] == true,
+      pointsRefunded: map['pointsRefunded'] == true,
       status: OrderStatus.values.byName(map['status'] as String),
       createdAt: readDate(map['createdAt']),
     );

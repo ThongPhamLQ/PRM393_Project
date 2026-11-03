@@ -23,18 +23,23 @@ void main() {
     );
   });
   test('KPIs are summed from Firestore order documents', () {
-    Map<String, dynamic> order(String status, int total, {bool paid = false}) =>
-        {
-          'status': status,
-          'totalPrice': total,
-          'isPaid': paid,
-          'items': [
-            {'productName': 'Bạc xỉu', 'quantity': 2},
-            {'productName': 'Trà vải', 'quantity': 1},
-          ],
-        };
+    Map<String, dynamic> order(
+      String status,
+      int total, {
+      bool paid = false,
+      int discount = 0,
+    }) => {
+      'status': status,
+      'totalPrice': total,
+      'isPaid': paid,
+      'discountAmount': discount,
+      'items': [
+        {'productName': 'Bạc xỉu', 'quantity': 2},
+        {'productName': 'Trà vải', 'quantity': 1},
+      ],
+    };
     final s = DashboardStats.fromOrderMaps([
-      order('completed', 100000),
+      order('completed', 100000, discount: 20000),
       order('completed', 50000),
       order('pending', 30000, paid: true),
       order('preparing', 20000),
@@ -46,6 +51,7 @@ void main() {
     expect(s.completedOrders, 2);
     expect(s.cancelledOrders, 1);
     expect(s.revenue, 150000);
+    expect(s.loyaltyDiscounts, 20000);
     expect(s.paidNotCompleted, 30000);
     // Chỉ đếm món của đơn đã hoàn thành: 2 đơn x 2 ly bạc xỉu
     expect(s.topDrinks.first.name, 'Bạc xỉu');

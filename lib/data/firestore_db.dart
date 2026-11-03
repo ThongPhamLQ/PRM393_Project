@@ -19,6 +19,9 @@ class Collections {
   static const chats = 'chats';
   static const messages = 'messages';
   static const counters = 'counters';
+  static const favorites = 'favorites';
+  static const loyaltyAccounts = 'loyaltyAccounts';
+  static const loyaltyTransactions = 'transactions';
 }
 
 // Firestore không có AUTOINCREMENT như SQLite: đọc bộ đếm counters/{name} rồi

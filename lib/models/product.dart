@@ -22,6 +22,8 @@ class Product {
   final String description;
   final int price; // giá size S (VND)
   final String imageUrl; // để trống thì hiển thị icon
+  final String status;
+  final bool deleted;
 
   Product({
     required this.id,
@@ -30,6 +32,8 @@ class Product {
     required this.description,
     required this.price,
     this.imageUrl = '',
+    this.status = 'available',
+    this.deleted = false,
   });
 
   factory Product.fromMap(Map<String, dynamic> map) {
@@ -40,6 +44,8 @@ class Product {
       description: (map['description'] as String?) ?? '',
       price: _toInt(map['price']),
       imageUrl: (map['imageUrl'] as String?) ?? '',
+      status: (map['status'] as String?) ?? 'available',
+      deleted: map['deleted'] == true,
     );
   }
 }

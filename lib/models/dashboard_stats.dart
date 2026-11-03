@@ -12,6 +12,7 @@ class DashboardStats {
   final int cancelledOrders;
   final int revenue;
   final int paidNotCompleted;
+  final int loyaltyDiscounts;
   final List<TopDrink> topDrinks;
 
   const DashboardStats({
@@ -22,6 +23,7 @@ class DashboardStats {
     required this.cancelledOrders,
     required this.revenue,
     required this.paidNotCompleted,
+    this.loyaltyDiscounts = 0,
     required this.topDrinks,
   });
 
@@ -29,7 +31,7 @@ class DashboardStats {
   // cộng dồn ở đây. Đồ uống bán chạy lấy từ mảng items của đơn đã hoàn thành.
   factory DashboardStats.fromOrderMaps(Iterable<Map<String, dynamic>> orders) {
     var all = 0, pending = 0, processing = 0, completed = 0, cancelled = 0;
-    var revenue = 0, paidNotCompleted = 0;
+    var revenue = 0, paidNotCompleted = 0, loyaltyDiscounts = 0;
     final drinks = <String, int>{};
     for (final order in orders) {
       final status = order['status'] as String;
@@ -47,9 +49,11 @@ class DashboardStats {
       if (DashboardKpiRules.isRevenue(status)) {
         completed++;
         revenue += total;
+        loyaltyDiscounts += (order['discountAmount'] as num?)?.toInt() ?? 0;
         for (final item in (order['items'] as List?) ?? const []) {
           final name = item['productName'] as String;
-          drinks[name] = (drinks[name] ?? 0) + (item['quantity'] as num).toInt();
+          drinks[name] =
+              (drinks[name] ?? 0) + (item['quantity'] as num).toInt();
         }
       }
     }
@@ -68,6 +72,7 @@ class DashboardStats {
       cancelledOrders: cancelled,
       revenue: revenue,
       paidNotCompleted: paidNotCompleted,
+      loyaltyDiscounts: loyaltyDiscounts,
       topDrinks: [for (final e in ranked.take(5)) TopDrink(e.key, e.value)],
     );
   }

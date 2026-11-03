@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 
 import '../data/firestore_db.dart';
+import '../models/loyalty.dart';
 import '../models/order.dart';
 
 // Đọc/ghi collection orders. Mỗi đơn là 1 document, các món nằm trong mảng items.
@@ -22,18 +23,67 @@ class OrderRepository {
     }
     final calculatedTotal = items.fold<int>(
       0,
-      (sum, item) => sum + item.totalPrice,
+      (total, item) => total + item.totalPrice,
     );
-    if (calculatedTotal <= 0 || calculatedTotal != order.totalPrice) {
+    if (calculatedTotal <= 0 || calculatedTotal != order.subtotal) {
       throw StateError('Tổng tiền và chi tiết đơn hàng không khớp.');
     }
+    final expectedDiscount = order.pointsUsed * LoyaltyPolicy.pointValueVnd;
+    if (order.pointsUsed < 0 ||
+        order.discountAmount != expectedDiscount ||
+        order.totalPrice != order.subtotal - order.discountAmount ||
+        order.pointsUsed >
+            LoyaltyPolicy.maxRedeemablePoints(
+              subtotal: order.subtotal,
+              balance: order.pointsUsed,
+            )) {
+      throw StateError('Thông tin đổi điểm không hợp lệ.');
+    }
     return _db.runTransaction((txn) async {
+      final loyaltyRef = _db
+          .collection(Collections.loyaltyAccounts)
+          .doc(order.userId);
+      DocumentSnapshot<Map<String, dynamic>>? loyaltySnap;
+      if (order.pointsUsed > 0) {
+        loyaltySnap = await txn.get(loyaltyRef);
+        final balance = (loyaltySnap.data()?['balance'] as num?)?.toInt() ?? 0;
+        final max = LoyaltyPolicy.maxRedeemablePoints(
+          subtotal: order.subtotal,
+          balance: balance,
+        );
+        if (order.pointsUsed > max) {
+          throw StateError('Số dư điểm không đủ hoặc vượt mức giảm cho phép.');
+        }
+      }
       final orderId = await nextId(txn, _db, Collections.orders);
       txn.set(_orders.doc('$orderId'), {
         ...order.toMap(),
         'id': orderId,
         'items': items.map((item) => item.toMap()).toList(),
       });
+      if (order.pointsUsed > 0) {
+        final old = loyaltySnap!.data();
+        final balance = (old?['balance'] as num?)?.toInt() ?? 0;
+        txn.set(loyaltyRef, {
+          'balance': balance - order.pointsUsed,
+          'lifetimeEarned': (old?['lifetimeEarned'] as num?)?.toInt() ?? 0,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'lastMutationKey': '${orderId}_redeem',
+          'lastOrderId': orderId,
+          'lastMutationType': 'redeem',
+        });
+        txn.set(
+          loyaltyRef
+              .collection(Collections.loyaltyTransactions)
+              .doc('${orderId}_redeem'),
+          {
+            'orderId': orderId,
+            'type': LoyaltyTransactionType.redeem.name,
+            'points': order.pointsUsed,
+            'createdAt': FieldValue.serverTimestamp(),
+          },
+        );
+      }
       return orderId;
     });
   }
@@ -78,12 +128,82 @@ class OrderRepository {
     await _db.runTransaction((txn) async {
       final ref = _orders.doc('$orderId');
       final snap = await txn.get(ref);
-      if (snap.data()?['status'] != expectedStatus.name) {
+      final data = snap.data();
+      if (data?['status'] != expectedStatus.name) {
         throw StateError(
           'Đơn hàng đã thay đổi hoặc không còn tồn tại. Vui lòng tải lại.',
         );
       }
-      txn.update(ref, {'status': newStatus.name});
+      final userId = data!['userId'] as String;
+      final loyaltyRef = _db
+          .collection(Collections.loyaltyAccounts)
+          .doc(userId);
+      final shouldEarn =
+          newStatus == OrderStatus.completed && data['loyaltyAwarded'] != true;
+      final pointsUsed = (data['pointsUsed'] as num?)?.toInt() ?? 0;
+      final shouldRefund =
+          newStatus == OrderStatus.cancelled &&
+          pointsUsed > 0 &&
+          data['pointsRefunded'] != true;
+      DocumentSnapshot<Map<String, dynamic>>? accountSnap;
+      if (shouldEarn || shouldRefund) accountSnap = await txn.get(loyaltyRef);
+
+      final updates = <String, Object?>{'status': newStatus.name};
+      if (shouldEarn) {
+        final points = LoyaltyPolicy.pointsEarned(
+          (data['totalPrice'] as num).toInt(),
+        );
+        updates['loyaltyAwarded'] = true;
+        if (points > 0) {
+          final account = accountSnap!.data();
+          final balance = (account?['balance'] as num?)?.toInt() ?? 0;
+          final lifetime = (account?['lifetimeEarned'] as num?)?.toInt() ?? 0;
+          txn.set(loyaltyRef, {
+            'balance': balance + points,
+            'lifetimeEarned': lifetime + points,
+            'updatedAt': FieldValue.serverTimestamp(),
+            'lastMutationKey': '${orderId}_earn',
+            'lastOrderId': orderId,
+            'lastMutationType': 'earn',
+          });
+          txn.set(
+            loyaltyRef
+                .collection(Collections.loyaltyTransactions)
+                .doc('${orderId}_earn'),
+            {
+              'orderId': orderId,
+              'type': LoyaltyTransactionType.earn.name,
+              'points': points,
+              'createdAt': FieldValue.serverTimestamp(),
+            },
+          );
+        }
+      }
+      if (shouldRefund) {
+        final account = accountSnap!.data();
+        final balance = (account?['balance'] as num?)?.toInt() ?? 0;
+        updates['pointsRefunded'] = true;
+        txn.set(loyaltyRef, {
+          'balance': balance + pointsUsed,
+          'lifetimeEarned': (account?['lifetimeEarned'] as num?)?.toInt() ?? 0,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'lastMutationKey': '${orderId}_refund',
+          'lastOrderId': orderId,
+          'lastMutationType': 'refund',
+        });
+        txn.set(
+          loyaltyRef
+              .collection(Collections.loyaltyTransactions)
+              .doc('${orderId}_refund'),
+          {
+            'orderId': orderId,
+            'type': LoyaltyTransactionType.refund.name,
+            'points': pointsUsed,
+            'createdAt': FieldValue.serverTimestamp(),
+          },
+        );
+      }
+      txn.update(ref, updates);
     });
   }
 }
