@@ -105,7 +105,7 @@ class _AdminProductEditorScreenState extends State<AdminProductEditorScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
-              value: validCategory ? _categoryId : null,
+              initialValue: validCategory ? _categoryId : null,
               decoration: const InputDecoration(
                 labelText: 'Danh mục *',
                 border: OutlineInputBorder(),
@@ -149,7 +149,7 @@ class _AdminProductEditorScreenState extends State<AdminProductEditorScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<ProductSaleStatus>(
-              value: _status,
+              initialValue: _status,
               decoration: const InputDecoration(
                 labelText: 'Tình trạng kinh doanh',
                 border: OutlineInputBorder(),

@@ -24,8 +24,9 @@ class DashboardProvider extends ChangeNotifier {
       if (periodDays != 0 && periodDays != 7 && periodDays != 30) {
         throw ArgumentError.value(periodDays, 'periodDays');
       }
-      if (days != periodDays)
+      if (days != periodDays) {
         stats = null; // Prevent stale previous-period KPIs.
+      }
       days = periodDays;
     }
 

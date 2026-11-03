@@ -62,8 +62,9 @@ class _AdminProductsBodyState extends State<_AdminProductsBody> {
   }
 
   void _message(String text) {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    }
   }
 
   Future<void> _setStatus(
@@ -106,8 +107,9 @@ class _AdminProductsBodyState extends State<_AdminProductsBody> {
           ),
           FilledButton(
             onPressed: () {
-              if (form.currentState!.validate())
+              if (form.currentState!.validate()) {
                 Navigator.pop(dialogContext, true);
+              }
             },
             child: const Text('Lưu'),
           ),
@@ -199,8 +201,9 @@ class _AdminProductsBodyState extends State<_AdminProductsBody> {
           ),
           FilledButton(
             onPressed: () {
-              if (form.currentState!.validate())
+              if (form.currentState!.validate()) {
                 Navigator.pop(dialogContext, true);
+              }
             },
             child: const Text('Lưu'),
           ),

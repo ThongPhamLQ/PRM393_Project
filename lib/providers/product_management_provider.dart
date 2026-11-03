@@ -49,8 +49,9 @@ class ProductManagementProvider extends ChangeNotifier {
     try {
       await operation();
       await refresh();
-      if (error != null)
+      if (error != null) {
         throw StateError('Đã lưu nhưng không tải lại được danh sách: $error');
+      }
     } finally {
       saving = false;
       if (!_disposed) notifyListeners();
