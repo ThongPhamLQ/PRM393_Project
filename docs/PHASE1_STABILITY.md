@@ -1,5 +1,9 @@
 # PRM393 – Phase 1 stability verification
 
+> **Update 11/2026:** the app moved from SQLite to Cloud Firestore. The same checks still apply, but the status
+> guard is now a Firestore transaction, Admin and Customer can use different devices, and status notifications
+> reach the customer's device in realtime. Mentions of SQLite below describe the old version; see `README.md` §5.
+
 This package patches an existing `PRM393_Project` checkout/order workflow on the **dat** branch.
 No database schema changes, package upgrades, or destructive commands are required.
 

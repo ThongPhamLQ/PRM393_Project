@@ -1,43 +1,44 @@
-import '../data/database_helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../data/firestore_db.dart';
 import '../models/app_notification.dart';
 
-// Đọc/ghi bảng notifications
+// Đọc/ghi thông báo: users/{userId}/notifications
 class NotificationRepository {
-  final _dbHelper = DatabaseHelper.instance;
+  NotificationRepository({FirebaseFirestore? db}) : _dbOverride = db;
+  final FirebaseFirestore? _dbOverride;
+  FirebaseFirestore get _db => _dbOverride ?? FirebaseFirestore.instance;
 
-  Future<void> insert(AppNotification notification) async {
-    final db = await _dbHelper.database;
-    await db.insert('notifications', notification.toMap()..remove('id'));
+  CollectionReference<Map<String, dynamic>> _ofUser(String userId) => _db
+      .collection(Collections.users)
+      .doc(userId)
+      .collection(Collections.notifications);
+
+  Future<void> insert(AppNotification notification) =>
+      _ofUser(notification.userId).add(notification.toMap());
+
+  // Mới nhất lên đầu. Stream: quán đổi trạng thái đơn trên máy khác thì
+  // thông báo xuất hiện ngay trên máy khách.
+  Stream<List<AppNotification>> watchByUser(String userId) {
+    return _ofUser(userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => AppNotification.fromMap(d.id, userId, d.data()))
+              .toList(),
+        );
   }
 
-  Future<List<AppNotification>> getByUser(int userId) async {
-    final db = await _dbHelper.database;
-    final rows = await db.query(
-      'notifications',
-      where: 'userId = ?',
-      whereArgs: [userId],
-      orderBy: 'id DESC',
-    );
-    return rows.map((row) => AppNotification.fromMap(row)).toList();
-  }
+  Future<void> markAsRead(String userId, String id) =>
+      _ofUser(userId).doc(id).update({'isRead': true});
 
-  Future<void> markAsRead(int id) async {
-    final db = await _dbHelper.database;
-    await db.update(
-      'notifications',
-      {'isRead': 1},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<void> markAllAsRead(int userId) async {
-    final db = await _dbHelper.database;
-    await db.update(
-      'notifications',
-      {'isRead': 1},
-      where: 'userId = ?',
-      whereArgs: [userId],
-    );
+  Future<void> markAllAsRead(String userId) async {
+    final unread = await _ofUser(userId).where('isRead', isEqualTo: false).get();
+    final batch = _db.batch();
+    for (final doc in unread.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+    await batch.commit();
   }
 }

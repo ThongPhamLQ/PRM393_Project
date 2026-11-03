@@ -1,11 +1,11 @@
 {
-    "name": "shop_app",
-    "short_name": "shop_app",
+    "name": "Mộc Cafe & Milk Tea",
+    "short_name": "Mộc Cafe",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "PRM393 Shop App",
+    "background_color": "#72361E",
+    "theme_color": "#72361E",
+    "description": "Đặt cà phê, trà sữa và theo dõi đơn tại Mộc Cafe & Milk Tea",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

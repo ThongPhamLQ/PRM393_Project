@@ -17,12 +17,12 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  late final int _userId;
+  late final String _userId;
 
   @override
   void initState() {
     super.initState();
-    _userId = context.read<AuthProvider>().currentUser!.id!;
+    _userId = context.read<AuthProvider>().currentUser!.id;
     Future.microtask(_loadOrders); // tải dữ liệu sau khi build xong
   }
 
@@ -40,14 +40,22 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     if (orderProvider.isLoading && orders.isEmpty) {
       body = const Center(child: CircularProgressIndicator());
     } else if (orders.isEmpty) {
+      final error = orderProvider.loadError;
       // Bọc trong ListView để vẫn kéo xuống làm mới được
       body = ListView(
-        children: const [
-          SizedBox(height: 120),
-          EmptyView(
-            icon: Icons.receipt_long,
-            message: 'Bạn chưa có đơn hàng nào',
-          ),
+        children: [
+          const SizedBox(height: 120),
+          // Lỗi tải thì báo lỗi + nút Thử lại, không giả vờ là "chưa có đơn"
+          error != null
+              ? EmptyView(
+                  icon: Icons.cloud_off,
+                  message: error,
+                  onRetry: _loadOrders,
+                )
+              : const EmptyView(
+                  icon: Icons.receipt_long,
+                  message: 'Bạn chưa có đơn hàng nào',
+                ),
         ],
       );
     } else {

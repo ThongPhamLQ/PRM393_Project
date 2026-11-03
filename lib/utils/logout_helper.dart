@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/menu_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/order_provider.dart';
 
@@ -32,13 +33,15 @@ Future<void> confirmLogout(BuildContext context) async {
   final navigator = Navigator.of(context);
   final auth = context.read<AuthProvider>();
 
-  // Xóa dữ liệu của người dùng cũ để người sau không thấy
+  // Xóa dữ liệu của người dùng cũ để người sau không thấy, đồng thời ngừng nghe
+  // Firestore TRƯỚC khi đăng xuất (sau đó Security Rules sẽ chặn quyền đọc)
   context.read<CartProvider>().clear();
   context.read<OrderProvider>().clear();
   context.read<NotificationProvider>().clear();
   context.read<ChatProvider>().clear();
+  context.read<MenuProvider>().clear();
 
-  await auth.logout(); // xóa phiên trong SharedPreferences
+  await auth.logout(); // Firebase Auth xóa phiên đăng nhập trên máy
 
   // Về màn Login và xóa hết các màn hình cũ khỏi stack
   navigator.pushNamedAndRemoveUntil('/login', (route) => false);

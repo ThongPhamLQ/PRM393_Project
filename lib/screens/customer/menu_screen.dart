@@ -1,16 +1,20 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/order.dart';
 import '../../models/product.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/menu_provider.dart';
+import '../../providers/order_provider.dart';
 import '../../utils/constants.dart';
+import '../../widgets/active_order_card.dart';
 import '../../widgets/brand_block.dart';
 import '../../widgets/cart_button.dart';
 import '../../widgets/empty_view.dart';
 import '../../widgets/product_card.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/section_card.dart';
+import '../shared/order_detail_screen.dart';
 import 'product_detail_screen.dart';
 
 // Tab Menu: khối nâu (lời chào + giỏ hàng + tìm kiếm) + banner + chip danh mục
@@ -26,6 +30,11 @@ class MenuScreen extends StatelessWidget {
     final userName = context.select<AuthProvider, String>(
       (auth) => auth.currentUser?.name ?? '',
     );
+    // Đơn mới nhất còn đang chạy (danh sách đã sắp mới nhất lên đầu).
+    // select: chỉ build lại khi đơn này hoặc trạng thái của nó đổi
+    final activeOrder = context.select<OrderProvider, Order?>(
+      (p) => p.orders.where((o) => o.status.isActive).firstOrNull,
+    );
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     // Điện thoại: khối nâu nối lên tận thanh trạng thái. Màn có thanh trái
@@ -34,6 +43,17 @@ class MenuScreen extends StatelessWidget {
 
     if (menu.isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    // Lỗi và chưa có món nào để hiện -> màn lỗi có nút Thử lại
+    final loadError = menu.loadError;
+    if (loadError != null && menu.products.isEmpty) {
+      return Scaffold(
+        body: EmptyView(
+          icon: Icons.cloud_off,
+          message: loadError,
+          onRetry: menu.loadMenu,
+        ),
+      );
     }
 
     // Tiêu đề mục: danh mục đang chọn, hoặc "Tất cả món"
@@ -104,6 +124,22 @@ class MenuScreen extends StatelessWidget {
                 ),
               ),
 
+              if (activeOrder != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: ActiveOrderCard(
+                      order: activeOrder,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => OrderDetailScreen(order: activeOrder),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
               const SliverToBoxAdapter(child: _MenuBanner()),
 
               // Danh mục: cuộn ngang, mỗi chip có icon. Mục 0 là "Tất cả"
@@ -147,16 +183,27 @@ class MenuScreen extends StatelessWidget {
 
               // Lưới các món
               if (products.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   hasScrollBody: false,
-                  child: EmptyView(
-                    icon: Icons.search_off,
-                    message: 'Không tìm thấy món nào',
-                  ),
+                  // Nói rõ vì sao trống: không khớp từ khóa hay danh mục chưa có món
+                  child: menu.searchText.trim().isNotEmpty
+                      ? EmptyView(
+                          icon: Icons.search_off,
+                          message:
+                              'Không có món nào khớp “${menu.searchText.trim()}”.\n'
+                              'Thử từ khóa ngắn hơn, VD: “tra sua”.',
+                        )
+                      : EmptyView(
+                          icon: Icons.local_cafe_outlined,
+                          message: selectedId == null
+                              ? 'Quán chưa có món nào đang bán'
+                              : 'Danh mục này chưa có món',
+                        ),
                 )
               else
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  // Đáy chừa 96px để nút giỏ nổi không che món cuối
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                   sliver: SliverGrid.builder(
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: columns,

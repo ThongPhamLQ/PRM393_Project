@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import 'app_logo.dart';
 import 'max_width_box.dart';
 
 // Khung điều hướng responsive, dùng chung cho khách hàng và chủ quán (Module 6):
@@ -13,6 +14,9 @@ class AdaptiveShell extends StatelessWidget {
   final List<NavigationDestination> destinations;
   final Widget body;
   final PreferredSizeWidget? appBar;
+  // Nút nổi đặt ở Scaffold ngoài cùng: SnackBar cũng hiện ở Scaffold này nên
+  // Scaffold tự đẩy nút lên trên SnackBar, không bị che
+  final Widget? floatingActionButton;
 
   const AdaptiveShell({
     super.key,
@@ -21,6 +25,7 @@ class AdaptiveShell extends StatelessWidget {
     required this.destinations,
     required this.body,
     this.appBar,
+    this.floatingActionButton,
   });
 
   @override
@@ -38,6 +43,7 @@ class AdaptiveShell extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: appBar,
+      floatingActionButton: floatingActionButton,
       bottomNavigationBar: useRail
           ? null
           : NavigationBar(
@@ -60,7 +66,7 @@ class AdaptiveShell extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.local_cafe, color: colors.primary),
+                    AppLogo(size: 32, foreground: colors.primary),
                     if (extended) ...[
                       const SizedBox(width: 12),
                       // Flexible: lúc rail đang giãn ra, chữ thu lại thay vì tràn

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/cart_item.dart';
 import '../../models/order.dart';
+import '../../providers/cart_provider.dart';
+import '../../providers/menu_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/format.dart';
+import '../../utils/motion.dart';
 import '../../widgets/max_width_box.dart';
 import '../../widgets/order_status_chip.dart';
 import '../../widgets/section_card.dart';
+import '../customer/cart_screen.dart';
 
 // Chi tiết đơn hàng (dùng chung):
 // - Khách hàng: xem trạng thái, được hủy khi đơn còn "Chờ xác nhận"
@@ -38,16 +43,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     _itemsFuture = context.read<OrderProvider>().getOrderItems(_order.id!);
   }
 
+  // Trạng thái mới nhất của đơn: lấy từ danh sách OrderProvider đang nghe realtime
+  // (chủ quán đổi trên máy khác thì màn này tự đổi theo); chưa có thì dùng _order.
+  OrderStatus _liveStatus(OrderProvider provider) {
+    for (final o in provider.orders) {
+      if (o.id == _order.id) return o.status;
+    }
+    return _order.status;
+  }
+
+  Order _withStatus(OrderStatus status) =>
+      status == _order.status ? _order : _order.copyWith(status: status);
+
   Future<void> _changeStatus(OrderStatus newStatus) async {
     if (_isUpdating) return;
     final provider = context.read<OrderProvider>();
+    // Dùng trạng thái mới nhất làm expectedStatus (tránh ghi đè bước vừa đổi ở máy khác)
+    final order = _withStatus(_liveStatus(provider));
     setState(() => _isUpdating = true);
     try {
-      await provider.updateStatus(_order, newStatus);
+      await provider.updateStatus(order, newStatus);
       if (!mounted) return;
-      setState(() => _order = _order.copyWith(status: newStatus));
+      setState(() => _order = order.copyWith(status: newStatus));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đơn #${_order.id}: ${newStatus.label}')),
+        SnackBar(content: Text('Đơn #${order.id}: ${newStatus.label}')),
       );
     } catch (e) {
       debugPrint('Update order status failed: $e');
@@ -76,14 +95,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Future<void> _confirmCancel() async {
     final colors = Theme.of(context).colorScheme;
+    final order = _withStatus(_liveStatus(context.read<OrderProvider>()));
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Hủy đơn hàng'),
         content: Text(
-          _order.isPaid
-              ? 'Bạn có chắc muốn hủy đơn #${_order.id}? Thanh toán hiện chỉ là giả lập; ứng dụng không thực hiện hoàn tiền.'
-              : 'Bạn có chắc muốn hủy đơn #${_order.id}?',
+          order.isPaid
+              ? 'Bạn có chắc muốn hủy đơn #${order.id}? Thanh toán hiện chỉ là giả lập; ứng dụng không thực hiện hoàn tiền.'
+              : 'Bạn có chắc muốn hủy đơn #${order.id}?',
         ),
         actions: [
           TextButton(
@@ -104,13 +124,49 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     if (confirmed == true) await _changeStatus(OrderStatus.cancelled);
   }
 
+  // Đặt lại: thêm các món của đơn này vào giỏ theo menu hiện tại rồi mở giỏ hàng
+  void _reorder(List<OrderItem> orderItems) {
+    final menu = context.read<MenuProvider>();
+    final cart = context.read<CartProvider>();
+    final messenger = ScaffoldMessenger.of(context);
+    final (:items, :skipped) = cartItemsFromOrder(
+      orderItems,
+      menu.products,
+      menu.toppings,
+    );
+    if (items.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Các món trong đơn này đã ngừng bán.')),
+      );
+      return;
+    }
+    items.forEach(cart.addItem);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          skipped == 0
+              ? 'Đã thêm ${items.length} món vào giỏ'
+              : 'Đã thêm ${items.length} món · $skipped món không còn bán',
+        ),
+      ),
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CartScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    // select: chỉ build lại khi trạng thái của chính đơn này đổi
+    final order = _withStatus(
+      context.select<OrderProvider, OrderStatus>(_liveStatus),
+    );
 
     return Scaffold(
-      appBar: AppBar(title: Text('Đơn #${_order.id}')),
+      appBar: AppBar(title: Text('Đơn #${order.id}')),
       body: MaxWidthBox(
         maxWidth: 720,
         child: ListView(
@@ -126,11 +182,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Row(
                       children: [
                         const Expanded(child: SectionHeader('Trạng thái')),
-                        OrderStatusChip(status: _order.status),
+                        OrderStatusChip(status: order.status),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _StatusTimeline(status: _order.status),
+                    _StatusTimeline(status: order.status),
                   ],
                 ),
               ),
@@ -144,28 +200,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.person_outline),
-                    title: Text(_order.customerName),
-                    subtitle: Text(_order.phone),
+                    title: Text(order.customerName),
+                    subtitle: Text(order.phone),
                   ),
                   ListTile(
                     leading: const Icon(Icons.location_on_outlined),
-                    title: Text(_order.address),
+                    title: Text(order.address),
                   ),
                   ListTile(
                     leading: const Icon(Icons.payment),
-                    title: Text(_order.paymentMethod.label),
+                    title: Text(order.paymentMethod.label),
                     subtitle: Text(
-                      _order.isPaid ? 'Đã thanh toán' : 'Thanh toán khi nhận hàng',
+                      order.isPaid ? 'Đã thanh toán' : 'Thanh toán khi nhận hàng',
                     ),
                   ),
-                  if (_order.note.isNotEmpty)
+                  if (order.note.isNotEmpty)
                     ListTile(
                       leading: const Icon(Icons.edit_note),
-                      title: Text(_order.note),
+                      title: Text(order.note),
                     ),
                   ListTile(
                     leading: const Icon(Icons.access_time),
-                    title: Text(formatDateTime(_order.createdAt)),
+                    title: Text(formatDateTime(order.createdAt)),
                   ),
                 ],
               ),
@@ -198,8 +254,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     children: [
                       ...items.map((item) {
                         // Gộp topping + ghi chú thành 1 dòng mô tả
+                        final sugarIce = formatSugarIce(item.sugar, item.ice);
                         final details = [
                           if (item.toppings.isNotEmpty) 'Topping: ${item.toppings}',
+                          if (sugarIce.isNotEmpty) sugarIce,
                           if (item.note.isNotEmpty) 'Ghi chú: ${item.note}',
                         ];
                         return ListTile(
@@ -215,11 +273,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       ListTile(
                         title: Text('Tổng cộng', style: textTheme.titleMedium),
                         trailing: Text(
-                          formatVnd(_order.totalPrice),
+                          formatVnd(order.totalPrice),
                           style: textTheme.titleLarge
                               ?.copyWith(color: colors.primary),
                         ),
                       ),
+                      // Khách xem đơn đã xong / đã hủy: đặt lại đúng các món đó
+                      // (đơn cũ chưa lưu mã món thì không đặt lại được)
+                      if (!widget.isAdmin &&
+                          !order.status.isActive &&
+                          items.any((i) => i.productId != null))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                          child: FilledButton.tonalIcon(
+                            onPressed: () => _reorder(items),
+                            icon: const Icon(Icons.replay),
+                            label: const Text('Đặt lại'),
+                          ),
+                        ),
                     ],
                   );
                 },
@@ -228,14 +299,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildActions(),
+      bottomNavigationBar: _buildActions(order),
     );
   }
 
   // Nút thao tác ở dưới cùng (null = không hiện)
-  Widget? _buildActions() {
-    final next = _order.status.next;
-    final canCancel = _order.status == OrderStatus.pending;
+  Widget? _buildActions(Order order) {
+    final next = order.status.next;
+    final canCancel = order.status == OrderStatus.pending;
     final colors = Theme.of(context).colorScheme;
     // Nút hủy dùng màu error để khác nút chính
     final cancelStyle = OutlinedButton.styleFrom(
@@ -341,10 +412,21 @@ class _StatusTimeline extends StatelessWidget {
               children: [
                 Column(
                   children: [
-                    _buildDot(colors, steps[i], i, currentIndex),
+                    // Chấm đổi kiểu (chưa tới -> hiện tại -> đã qua) thì hiện dần
+                    AnimatedSwitcher(
+                      duration: motionDuration(context),
+                      transitionBuilder: fadeScale,
+                      child: KeyedSubtree(
+                        key: ValueKey(i.compareTo(currentIndex)),
+                        child: _buildDot(colors, steps[i], i, currentIndex),
+                      ),
+                    ),
                     if (i < steps.length - 1)
                       Expanded(
-                        child: Container(
+                        // Đường nối đổi màu dần khi đơn qua bước này
+                        child: AnimatedContainer(
+                          duration: motionDuration(context, 250),
+                          curve: motionCurve,
                           width: 2,
                           color: i < currentIndex
                               ? colors.primary
@@ -371,11 +453,19 @@ class _StatusTimeline extends StatelessWidget {
                                       : colors.onSurfaceVariant,
                                 ),
                         ),
+                        // Câu mô tả của bước hiện tại hiện dần khi đơn sang bước mới
                         if (i == currentIndex)
-                          Text(
-                            steps[i].message,
-                            style: textTheme.bodySmall
-                                ?.copyWith(color: colors.onSurfaceVariant),
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0, end: 1),
+                            duration: motionDuration(context),
+                            curve: motionCurve,
+                            builder: (context, opacity, child) =>
+                                Opacity(opacity: opacity, child: child),
+                            child: Text(
+                              steps[i].message,
+                              style: textTheme.bodySmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
                           ),
                       ],
                     ),

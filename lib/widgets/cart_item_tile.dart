@@ -47,6 +47,8 @@ class CartItemTile extends StatelessWidget {
                   Text('Size ${item.size}', style: detailStyle),
                   if (item.toppings.isNotEmpty)
                     Text('Topping: ${item.toppingNames}', style: detailStyle),
+                  if (formatSugarIce(item.sugar, item.ice).isNotEmpty)
+                    Text(formatSugarIce(item.sugar, item.ice), style: detailStyle),
                   if (item.note.isNotEmpty)
                     Text(
                       'Ghi chú: ${item.note}',

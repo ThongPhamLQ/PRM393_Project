@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import '../../utils/validators.dart';
+import '../../widgets/app_logo.dart';
 import '../../widgets/brand_block.dart';
 import '../../widgets/max_width_box.dart';
 import '../../widgets/section_card.dart';
@@ -230,13 +231,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                         child: Column(
                           children: [
-                            ExcludeSemantics(
-                              child: CircleAvatar(
-                                radius: 32,
-                                backgroundColor: colors.primaryFixed,
-                                foregroundColor: colors.onPrimaryFixedVariant,
-                                child: const Icon(Icons.local_cafe, size: 36),
-                              ),
+                            AppLogo(
+                              size: 64,
+                              background: colors.primaryFixed,
+                              foreground: colors.onPrimaryFixedVariant,
                             ),
                             const SizedBox(height: 12),
                             // textTheme của màn (ngoài khối) -> tự đặt màu sáng

@@ -16,9 +16,19 @@ const String goongMaptilesKey = String.fromEnvironment('GOONG_MAPTILES_KEY');
 // Map: key = tên size, value = giá cộng thêm so với giá gốc
 const Map<String, int> sizePrices = {'S': 0, 'M': 6000, 'L': 10000};
 
+// ===== Mức đường / mức đá (không đổi giá; phần tử đầu là mặc định) =====
+const String defaultSugar = '100%';
+const String defaultIce = 'Bình thường';
+const List<String> sugarLevels = [defaultSugar, '70%', '50%', '30%', '0%'];
+const List<String> iceLevels = [defaultIce, 'Ít đá', 'Không đá'];
+
 // ===== Vai trò người dùng =====
 const String roleCustomer = 'customer';
 const String roleAdmin = 'admin';
+
+// Tài khoản chủ quán. Firestore Security Rules (firestore.rules) cũng dùng đúng
+// email này để chỉ cho chủ quán sửa menu và đổi trạng thái đơn -> đổi thì sửa cả 2 nơi.
+const String adminEmail = 'admin@cafe.com';
 
 // ===== Người gửi tin nhắn =====
 const String senderCustomer = 'customer';

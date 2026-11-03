@@ -1,3 +1,5 @@
+import 'constants.dart';
+
 // Định dạng tiền VND: 35000 -> "35.000 đ"
 String formatVnd(num amount) {
   final s = amount.round().toString();
@@ -14,3 +16,10 @@ String formatDateTime(DateTime dt) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${two(dt.hour)}:${two(dt.minute)} ${two(dt.day)}/${two(dt.month)}/${dt.year}';
 }
+
+// Mức đường / đá để hiện cho khách và quán, chỉ ghi phần khác mặc định:
+// "Đường 70% · Ít đá". Mặc định hoặc đơn cũ chưa có (chuỗi rỗng) -> ''
+String formatSugarIce(String sugar, String ice) => [
+  if (sugar.isNotEmpty && sugar != defaultSugar) 'Đường $sugar',
+  if (ice.isNotEmpty && ice != defaultIce) ice,
+].join(' · ');

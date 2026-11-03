@@ -1,5 +1,9 @@
 # Giai đoạn 2B – Quản lý menu Mộc Cafe & Milk Tea
 
+> **Cập nhật 11/2026:** app đã chuyển từ SQLite sang Cloud Firestore. Tình trạng bán nằm trong trường `status`
+> của document `products/{id}` (bỏ bảng `product_sale_status`), menu của khách tự cập nhật khi chủ quán sửa,
+> và chỉ tài khoản chủ quán được ghi menu (Security Rules). Các chỗ nhắc SQLite bên dưới mô tả phiên bản cũ.
+
 ## Phạm vi triển khai
 
 Bổ sung **Admin → Đơn hàng → Quản lý sản phẩm**, gồm 3 tab **Đồ uống / Danh mục / Topping**. Giao diện mới có `ChangeNotifierProvider` riêng, không phải sửa `main.dart` hay kiến trúc các tab hiện tại.

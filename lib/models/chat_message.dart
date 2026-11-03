@@ -1,16 +1,17 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+
+import '../data/firestore_db.dart';
 import '../utils/constants.dart';
 
 // 1 tin nhắn giữa khách hàng và quán.
-// Mỗi khách có 1 cuộc trò chuyện riêng với quán (nhận biết bằng customerId).
+// Mỗi khách có 1 cuộc trò chuyện riêng với quán: chats/{customerId}/messages
 class ChatMessage {
-  final int? id;
-  final int customerId;
+  final String customerId; // uid của khách (cuộc trò chuyện nào)
   final String sender; // 'customer' hoặc 'shop'
   final String content;
   final DateTime createdAt;
 
   ChatMessage({
-    this.id,
     required this.customerId,
     required this.sender,
     required this.content,
@@ -19,30 +20,30 @@ class ChatMessage {
 
   bool get isFromShop => sender == senderShop;
 
+  // customerId là tên document cha nên không cần lưu trong từng tin
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'customerId': customerId,
       'sender': sender,
       'content': content,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': Timestamp.fromDate(createdAt),
     };
   }
 
-  factory ChatMessage.fromMap(Map<String, dynamic> map) {
+  factory ChatMessage.fromMap(String customerId, Map<String, dynamic> map) {
     return ChatMessage(
-      id: map['id'] as int,
-      customerId: map['customerId'] as int,
+      customerId: customerId,
       sender: map['sender'] as String,
       content: map['content'] as String,
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      createdAt: readDate(map['createdAt']),
     );
   }
 }
 
-// Dùng cho màn hình chủ quán: danh sách các cuộc trò chuyện
+// Dùng cho màn hình chủ quán: danh sách các cuộc trò chuyện.
+// Mỗi document chats/{customerId} giữ sẵn tên khách + tin mới nhất,
+// thay cho câu SQL JOIN + GROUP BY trước đây.
 class Conversation {
-  final int customerId;
+  final String customerId;
   final String customerName;
   final String lastMessage;
   final DateTime lastTime;
@@ -54,12 +55,12 @@ class Conversation {
     required this.lastTime,
   });
 
-  factory Conversation.fromMap(Map<String, dynamic> map) {
+  factory Conversation.fromMap(String customerId, Map<String, dynamic> map) {
     return Conversation(
-      customerId: map['customerId'] as int,
-      customerName: map['name'] as String,
-      lastMessage: map['content'] as String,
-      lastTime: DateTime.parse(map['createdAt'] as String),
+      customerId: customerId,
+      customerName: map['customerName'] as String,
+      lastMessage: map['lastMessage'] as String,
+      lastTime: readDate(map['lastTime']),
     );
   }
 }

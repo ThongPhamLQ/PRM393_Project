@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "712310450645",
+    "project_id": "moc-cafe-prm393",
+    "storage_bucket": "moc-cafe-prm393.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:712310450645:android:c82d8d4a22e5a72807f55c",
+        "android_client_info": {
+          "package_name": "com.project.shop_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3YlI0iTnsOMVt4nm4t-CBTSe08eGrQD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

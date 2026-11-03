@@ -1,5 +1,9 @@
 # Giai đoạn 2A — Admin Dashboard / Quy tắc KPI
 
+> **Cập nhật 11/2026:** app đã chuyển từ SQLite sang Cloud Firestore. Quy tắc KPI giữ nguyên (`DashboardKpiRules`),
+> nhưng số liệu giờ được cộng từ các document `orders` (`DashboardStats.fromOrderMaps`) và dùng chung cho mọi máy.
+> Các chỗ nhắc SQLite bên dưới mô tả phiên bản cũ; xem `README.md` §5.
+
 **Nhánh duy nhất: `dat`.** Giữ nguyên SQLite/schema, không xóa dữ liệu cũ, không thay pubspec.
 
 ## KPI chính thức

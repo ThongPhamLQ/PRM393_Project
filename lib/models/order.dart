@@ -1,3 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+
+import '../data/firestore_db.dart';
+
 // Trạng thái đơn hàng (enum có kèm nhãn + câu mô tả để gửi thông báo)
 enum OrderStatus {
   pending('Chờ xác nhận', 'Đơn hàng đang chờ quán xác nhận.'),
@@ -33,6 +37,9 @@ enum OrderStatus {
         return null;
     }
   }
+
+  // Đơn còn đang chạy (chưa hoàn thành / chưa hủy) -> hiện thẻ theo dõi ở Menu
+  bool get isActive => next != null;
 }
 
 // Phương thức thanh toán (online chỉ là giả lập)
@@ -47,8 +54,8 @@ enum PaymentMethod {
 
 // Đơn hàng
 class Order {
-  final int? id;
-  final int userId;
+  final int? id; // mã đơn #1, #2... (cấp từ counters/orders khi lưu)
+  final String userId; // uid của khách đặt đơn
   final String customerName;
   final String phone;
   final String address;
@@ -99,17 +106,17 @@ class Order {
       'address': address,
       'note': note,
       'paymentMethod': paymentMethod.name, // lưu dạng chữ: 'cash', 'momo'...
-      'isPaid': isPaid ? 1 : 0, // SQLite không có kiểu bool -> lưu 0/1
+      'isPaid': isPaid, // Firestore có sẵn kiểu bool
       'totalPrice': totalPrice,
       'status': status.name,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': Timestamp.fromDate(createdAt), // kiểu thời gian của Firestore
     };
   }
 
   factory Order.fromMap(Map<String, dynamic> map) {
     return Order(
-      id: map['id'] as int,
-      userId: map['userId'] as int,
+      id: (map['id'] as num).toInt(),
+      userId: map['userId'] as String,
       customerName: map['customerName'] as String,
       phone: map['phone'] as String,
       address: map['address'] as String,
@@ -117,33 +124,36 @@ class Order {
       paymentMethod: PaymentMethod.values.byName(
         map['paymentMethod'] as String,
       ),
-      isPaid: map['isPaid'] == 1,
-      totalPrice: map['totalPrice'] as int,
+      isPaid: map['isPaid'] == true,
+      totalPrice: (map['totalPrice'] as num).toInt(),
       status: OrderStatus.values.byName(map['status'] as String),
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      createdAt: readDate(map['createdAt']),
     );
   }
 }
 
-// 1 món trong đơn hàng.
+// 1 món trong đơn hàng, lưu trong mảng `items` của chính document đơn hàng
+// (Firestore không có JOIN nên gộp vào 1 document thay cho bảng order_items).
 // Lưu lại tên, size, topping, giá tại thời điểm đặt
 // -> sau này quán đổi giá menu thì lịch sử đơn vẫn đúng.
 class OrderItem {
-  final int? id;
-  final int? orderId;
+  final int? productId; // để "Đặt lại"; đơn cũ chưa lưu -> null
   final String productName;
   final String size;
   final String toppings;
+  final String sugar; // mức đường; đơn cũ chưa có -> ''
+  final String ice; // mức đá; đơn cũ chưa có -> ''
   final String note;
   final int quantity;
   final int unitPrice;
 
   OrderItem({
-    this.id,
-    this.orderId,
+    this.productId,
     required this.productName,
     required this.size,
     required this.toppings,
+    this.sugar = '',
+    this.ice = '',
     this.note = '',
     required this.quantity,
     required this.unitPrice,
@@ -153,11 +163,12 @@ class OrderItem {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
-      'orderId': orderId,
+      'productId': ?productId, // null thì không ghi field này
       'productName': productName,
       'size': size,
       'toppings': toppings,
+      'sugar': sugar,
+      'ice': ice,
       'note': note,
       'quantity': quantity,
       'unitPrice': unitPrice,
@@ -166,14 +177,16 @@ class OrderItem {
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
     return OrderItem(
-      id: map['id'] as int,
-      orderId: map['orderId'] as int,
+      productId: (map['productId'] as num?)?.toInt(),
       productName: map['productName'] as String,
       size: map['size'] as String,
       toppings: (map['toppings'] as String?) ?? '',
+      // Đơn đặt trước khi có mức đường / đá -> chuỗi rỗng (không hiện gì)
+      sugar: (map['sugar'] as String?) ?? '',
+      ice: (map['ice'] as String?) ?? '',
       note: (map['note'] as String?) ?? '',
-      quantity: map['quantity'] as int,
-      unitPrice: map['unitPrice'] as int,
+      quantity: (map['quantity'] as num).toInt(),
+      unitPrice: (map['unitPrice'] as num).toInt(),
     );
   }
 }

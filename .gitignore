@@ -49,3 +49,10 @@ app.*.map.json
 
 # Goong key (mỗi người tự tạo từ .env.example, không commit)
 .env
+
+# Chỉ để trên máy cá nhân: hướng dẫn cho AI agent, cache deploy Firebase, cấu hình editor
+CLAUDE.md
+.claude/
+.agents/
+.firebase/
+.vscode/

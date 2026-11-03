@@ -6,7 +6,6 @@ import '../../models/cart_item.dart';
 import '../../models/order.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
-import '../../providers/notification_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../utils/format.dart';
 import '../../utils/validators.dart';
@@ -15,6 +14,7 @@ import '../../widgets/max_width_box.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/section_card.dart';
 import '../../widgets/total_bar.dart';
+import 'order_success_screen.dart';
 
 // Đặt hàng: nhập thông tin nhận hàng + chọn cách thanh toán
 class CheckoutScreen extends StatefulWidget {
@@ -40,6 +40,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final user = context.read<AuthProvider>().currentUser!;
     _nameController.text = user.name;
     _phoneController.text = user.phone;
+    // Nhớ địa chỉ: lấy địa chỉ của đơn gần nhất (danh sách đã sắp mới nhất lên đầu)
+    _addressController.text =
+        context.read<OrderProvider>().orders.firstOrNull?.address ?? '';
   }
 
   @override
@@ -62,7 +65,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
     final orderProvider = context.read<OrderProvider>();
-    final notificationProvider = context.read<NotificationProvider>();
     final user = context.read<AuthProvider>().currentUser!;
     // Snapshot để tổng tiền và món lưu khớp với thời điểm bắt đầu checkout.
     final items = cart.items
@@ -71,6 +73,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             product: item.product,
             size: item.size,
             toppings: List.of(item.toppings),
+            sugar: item.sugar,
+            ice: item.ice,
             note: item.note,
             quantity: item.quantity,
           ),
@@ -102,33 +106,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       orderSaved = true;
       cart.clear(); // Không thể gửi lại đơn vì lỗi thông báo hoặc đóng dialog.
-
-      try {
-        await notificationProvider.loadNotifications(user.id!);
-      } catch (e) {
-        debugPrint('Refreshing notification badge failed: $e');
-      }
+      // Badge thông báo tự tăng: NotificationProvider đang nghe Firestore
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          icon: const Icon(Icons.check_circle, color: Colors.green, size: 64),
-          title: const Text('Đặt hàng thành công!'),
-          content: Text(
-            'Mã đơn hàng: #$orderId\n'
-            'Bạn có thể theo dõi trạng thái ở tab "Đơn hàng".',
-            textAlign: TextAlign.center,
+      // Sang màn thành công, bỏ Giỏ hàng + Đặt hàng khỏi ngăn xếp:
+      // bấm quay lại từ màn thành công là về thẳng Menu
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OrderSuccessScreen(
+            orderId: orderId,
+            total: amount,
+            paymentMethod: paymentMethod,
           ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('OK'),
-            ),
-          ],
         ),
+        (route) => route.isFirst,
       );
-      if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
     } catch (e) {
       debugPrint('Checkout failed: $e');
       if (mounted) {
@@ -146,6 +138,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  // Topping + mức đường/đá của 1 món, VD: "Trân châu đen · Đường 70% · Ít đá"
+  String _itemDetails(CartItem item) => [
+    if (item.toppings.isNotEmpty) item.toppingNames,
+    formatSugarIce(item.sugar, item.ice),
+  ].where((s) => s.isNotEmpty).join(' · ');
 
   // Biểu tượng cho từng phương thức thanh toán của giao diện mới.
   IconData _paymentIcon(PaymentMethod method) {
@@ -265,9 +263,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       title: Text(
                         '${item.quantity} x ${item.product.name} (${item.size})',
                       ),
-                      subtitle: item.toppings.isEmpty
+                      subtitle: _itemDetails(item).isEmpty
                           ? null
-                          : Text(item.toppingNames),
+                          : Text(_itemDetails(item)),
                       trailing: Text(formatVnd(item.totalPrice)),
                     );
                   }).toList(),

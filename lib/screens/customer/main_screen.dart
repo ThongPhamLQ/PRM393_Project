@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/menu_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/order_provider.dart';
 import '../../widgets/adaptive_shell.dart';
+import '../../widgets/cart_button.dart';
 import 'menu_screen.dart';
 import 'notifications_screen.dart';
 import 'order_history_screen.dart';
@@ -37,9 +39,11 @@ class _MainScreenState extends State<MainScreen> {
     // (gọi notifyListeners ngay trong initState sẽ bị lỗi)
     Future.microtask(() {
       if (!mounted) return;
-      final userId = context.read<AuthProvider>().currentUser!.id!;
+      final userId = context.read<AuthProvider>().currentUser!.id;
       context.read<MenuProvider>().loadMenu();
       context.read<NotificationProvider>().loadNotifications(userId);
+      // Nghe đơn ngay từ đầu để Menu hiện thẻ "Đơn đang thực hiện"
+      context.read<OrderProvider>().loadMyOrders(userId);
     });
   }
 
@@ -60,6 +64,8 @@ class _MainScreenState extends State<MainScreen> {
       selectedIndex: _currentIndex,
       onSelected: (index) => setState(() => _currentIndex = index),
       body: _pages[_currentIndex],
+      // Nút giỏ nổi chỉ ở tab Menu
+      floatingActionButton: _currentIndex == 0 ? const CartFab() : null,
       destinations: [
         const NavigationDestination(
           icon: Icon(Icons.local_cafe_outlined),

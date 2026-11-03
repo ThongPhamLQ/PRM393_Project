@@ -1,9 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
+import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/chat_provider.dart';
@@ -23,11 +23,11 @@ void main() async {
   // Bắt buộc khi cần gọi plugin (thông báo, database...) trước runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Chạy trên web (Chrome): sqflite không hỗ trợ web, nên dùng SQLite bản
-  // WebAssembly (web/sqlite3.wasm); dữ liệu lưu trong IndexedDB của trình duyệt
-  if (kIsWeb) {
-    databaseFactory = databaseFactoryFfiWeb;
-  }
+  // Kết nối Firebase (Auth + Firestore). Android đọc cấu hình từ
+  // android/app/google-services.json; web không có file đó nên truyền options.
+  await Firebase.initializeApp(
+    options: kIsWeb ? DefaultFirebaseOptions.web : null,
+  );
 
   await NotificationService.instance.init();
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/order.dart';
+import '../utils/motion.dart';
 
 // Icon + màu của từng trạng thái đơn (chỉ phục vụ giao diện, model giữ nguyên).
 // Mỗi trạng thái là 1 cặp nền / chữ của ColorScheme -> tự đổi theo sáng/tối,
@@ -43,7 +44,8 @@ extension OrderStatusStyle on OrderStatus {
   }
 }
 
-// Nhãn trạng thái đơn: icon + chữ trên nền màu của trạng thái
+// Nhãn trạng thái đơn: icon + chữ trên nền màu của trạng thái.
+// Trạng thái đổi thì nhãn mới hiện dần thay nhãn cũ (AnimatedSwitcher).
 class OrderStatusChip extends StatelessWidget {
   final OrderStatus status;
 
@@ -54,7 +56,16 @@ class OrderStatusChip extends StatelessWidget {
     final (:background, :foreground) =
         status.colors(Theme.of(context).colorScheme);
 
+    return AnimatedSwitcher(
+      duration: motionDuration(context),
+      transitionBuilder: fadeScale,
+      child: _buildChip(context, background, foreground),
+    );
+  }
+
+  Widget _buildChip(BuildContext context, Color background, Color foreground) {
     return Container(
+      key: ValueKey(status), // khác key -> AnimatedSwitcher biết là nhãn mới
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: ShapeDecoration(
         color: background,

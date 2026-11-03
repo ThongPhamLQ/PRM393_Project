@@ -29,21 +29,34 @@ class _AdminChatListScreenState extends State<AdminChatListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final conversations = context.watch<ChatProvider>().conversations;
+    final chat = context.watch<ChatProvider>();
+    final conversations = chat.conversations;
     final colors = Theme.of(context).colorScheme;
+
+    // Danh sách rỗng: phân biệt đang tải / lỗi / thật sự chưa có ai nhắn
+    Widget emptyBody() {
+      if (chat.conversationsLoading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      final error = chat.conversationsError;
+      // Bọc ListView để vẫn kéo xuống làm mới được
+      return ListView(
+        children: [
+          const SizedBox(height: 120),
+          error != null
+              ? EmptyView(icon: Icons.cloud_off, message: error, onRetry: _load)
+              : const EmptyView(
+                  icon: Icons.chat_bubble_outline,
+                  message: 'Chưa có khách nào nhắn tin',
+                ),
+        ],
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _load,
       child: conversations.isEmpty
-          ? ListView(
-              children: const [
-                SizedBox(height: 120),
-                EmptyView(
-                  icon: Icons.chat_bubble_outline,
-                  message: 'Chưa có khách nào nhắn tin',
-                ),
-              ],
-            )
+          ? emptyBody()
           : MaxWidthBox(
               maxWidth: 800,
               child: ListView.separated(

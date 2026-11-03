@@ -1,6 +1,5 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart' show Database;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart' as ffi;
 import 'package:shop_app/repositories/product_management_repository.dart';
 
 void main() {
@@ -19,49 +18,35 @@ void main() {
     });
   });
 
-  group('Soft delete with real in-memory SQLite', () {
-    late Database db;
+  // FakeFirebaseFirestore: Firestore giả lập trong bộ nhớ (có transaction),
+  // test chạy không cần mạng hay project Firebase thật
+  group('Soft delete with in-memory Firestore', () {
+    late FakeFirebaseFirestore db;
     late ProductManagementRepository repository;
 
     setUp(() async {
-      ffi.sqfliteFfiInit();
-      db = await ffi.databaseFactoryFfi.openDatabase(':memory:');
-      await db.execute('''
-        CREATE TABLE products (
-          id INTEGER PRIMARY KEY,
-          categoryId INTEGER NOT NULL,
-          name TEXT NOT NULL,
-          description TEXT,
-          price INTEGER NOT NULL,
-          imageUrl TEXT
-        )
-      ''');
-      await db.execute('''
-        CREATE TABLE order_items (
-          id INTEGER PRIMARY KEY,
-          productName TEXT NOT NULL,
-          unitPrice INTEGER NOT NULL
-        )
-      ''');
+      db = FakeFirebaseFirestore();
       for (final id in [1, 2, 3]) {
-        await db.insert('products', {
+        await db.collection('products').doc('$id').set({
           'id': id,
           'categoryId': 1,
           'name': 'Món $id',
           'description': '',
           'price': 30000 + id,
           'imageUrl': '',
+          'status': 'available',
+          'deleted': false,
         });
       }
-      await db.insert('order_items', {
+      // Đơn cũ có món 1: xóa món không được làm đổi lịch sử đơn
+      await db.collection('orders').doc('1').set({
         'id': 1,
-        'productName': 'Món 1',
-        'unitPrice': 30001,
+        'items': [
+          {'productName': 'Món 1', 'unitPrice': 30001, 'quantity': 1},
+        ],
       });
-      repository = ProductManagementRepository(databaseOpener: () async => db);
+      repository = ProductManagementRepository(db: db);
     });
-
-    tearDown(() async => db.close());
 
     test(
       'deletes many products atomically without altering order history',
@@ -74,10 +59,11 @@ void main() {
           containsAll([1, 2]),
         );
         expect(await repository.getUnavailableIds(), containsAll([1, 2]));
-        final order = await db.query('order_items');
-        expect(order.single['productName'], 'Món 1');
-        expect(order.single['unitPrice'], 30001);
-        expect((await db.query('products')).length, 3);
+        final order = await db.collection('orders').doc('1').get();
+        final item = (order['items'] as List).single as Map;
+        expect(item['productName'], 'Món 1');
+        expect(item['unitPrice'], 30001);
+        expect((await db.collection('products').get()).docs.length, 3);
       },
     );
 
@@ -116,6 +102,31 @@ void main() {
       await repository.softDeleteProducts([1]);
       await expectLater(repository.softDeleteProducts([1]), throwsStateError);
       expect((await repository.getDeletedProducts()).length, 1);
+    });
+
+    test('new product gets the next id and rejects a missing category', () async {
+      await db.collection('categories').doc('1').set({'id': 1, 'name': 'Cà phê'});
+      await db.collection('counters').doc('products').set({'value': 3});
+      final id = await repository.saveProduct(
+        categoryId: 1,
+        name: 'Món mới',
+        description: '',
+        price: 30000,
+        imageUrl: '',
+        status: ProductSaleStatus.available,
+      );
+      expect(id, 4);
+      await expectLater(
+        repository.saveProduct(
+          categoryId: 99,
+          name: 'Món lạc',
+          description: '',
+          price: 30000,
+          imageUrl: '',
+          status: ProductSaleStatus.available,
+        ),
+        throwsStateError,
+      );
     });
   });
 }

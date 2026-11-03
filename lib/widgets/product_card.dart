@@ -27,7 +27,11 @@ class ProductCard extends StatelessWidget {
             // Card đã cắt bo góc 12 -> ảnh tràn mép trên
             AspectRatio(
               aspectRatio: 1,
-              child: ProductImage(product: product),
+              // Hero: ảnh "bay" sang màn chi tiết món (cùng tag ở 2 màn)
+              child: Hero(
+                tag: productHeroTag(product),
+                child: ProductImage(product: product),
+              ),
             ),
             Expanded(
               child: Padding(
