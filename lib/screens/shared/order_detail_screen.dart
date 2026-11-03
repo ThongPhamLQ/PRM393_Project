@@ -10,6 +10,7 @@ import '../../utils/format.dart';
 import '../../utils/motion.dart';
 import '../../widgets/max_width_box.dart';
 import '../../widgets/order_status_chip.dart';
+import '../../widgets/product_reviews.dart';
 import '../../widgets/section_card.dart';
 import '../customer/cart_screen.dart';
 
@@ -211,7 +212,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     leading: const Icon(Icons.payment),
                     title: Text(order.paymentMethod.label),
                     subtitle: Text(
-                      order.isPaid ? 'Đã thanh toán' : 'Thanh toán khi nhận hàng',
+                      order.isPaid
+                          ? 'Đã thanh toán'
+                          : 'Thanh toán khi nhận hàng',
                     ),
                   ),
                   if (order.note.isNotEmpty)
@@ -256,7 +259,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         // Gộp topping + ghi chú thành 1 dòng mô tả
                         final sugarIce = formatSugarIce(item.sugar, item.ice);
                         final details = [
-                          if (item.toppings.isNotEmpty) 'Topping: ${item.toppings}',
+                          if (item.toppings.isNotEmpty)
+                            'Topping: ${item.toppings}',
                           if (sugarIce.isNotEmpty) sugarIce,
                           if (item.note.isNotEmpty) 'Ghi chú: ${item.note}',
                         ];
@@ -264,18 +268,48 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           title: Text(
                             '${item.quantity} x ${item.productName} (${item.size})',
                           ),
-                          subtitle:
-                              details.isEmpty ? null : Text(details.join('\n')),
+                          subtitle: details.isEmpty
+                              ? null
+                              : Text(details.join('\n')),
                           trailing: Text(formatVnd(item.totalPrice)),
                         );
                       }),
+                      if (!widget.isAdmin &&
+                          order.status == OrderStatus.completed)
+                        for (final productId
+                            in items
+                                .map((item) => item.productId)
+                                .whereType<int>()
+                                .toSet())
+                          OrderReviewButton(
+                            key: ValueKey('${order.id}_$productId'),
+                            productId: productId,
+                            orderId: order.id!,
+                            userId: order.userId,
+                            productName: items
+                                .firstWhere(
+                                  (item) => item.productId == productId,
+                                )
+                                .productName,
+                          ),
                       const Divider(height: 1, indent: 16, endIndent: 16),
+                      if (order.discountAmount > 0) ...[
+                        ListTile(
+                          title: const Text('Tạm tính'),
+                          trailing: Text(formatVnd(order.subtotal)),
+                        ),
+                        ListTile(
+                          title: Text('Dùng ${order.pointsUsed} điểm'),
+                          trailing: Text('-${formatVnd(order.discountAmount)}'),
+                        ),
+                      ],
                       ListTile(
                         title: Text('Tổng cộng', style: textTheme.titleMedium),
                         trailing: Text(
                           formatVnd(order.totalPrice),
-                          style: textTheme.titleLarge
-                              ?.copyWith(color: colors.primary),
+                          style: textTheme.titleLarge?.copyWith(
+                            color: colors.primary,
+                          ),
                         ),
                       ),
                       // Khách xem đơn đã xong / đã hủy: đặt lại đúng các món đó
@@ -315,11 +349,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
 
     Widget bar(Widget child) => SafeArea(
-          child: MaxWidthBox(
-            maxWidth: 720,
-            child: Padding(padding: const EdgeInsets.all(16), child: child),
-          ),
-        );
+      child: MaxWidthBox(
+        maxWidth: 720,
+        child: Padding(padding: const EdgeInsets.all(16), child: child),
+      ),
+    );
 
     if (widget.isAdmin) {
       if (next == null) return null; // đơn đã kết thúc
@@ -445,8 +479,9 @@ class _StatusTimeline extends StatelessWidget {
                         Text(
                           steps[i].label,
                           style: i == currentIndex
-                              ? textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700)
+                              ? textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                )
                               : textTheme.bodyMedium?.copyWith(
                                   color: i < currentIndex
                                       ? colors.onSurface
@@ -463,8 +498,9 @@ class _StatusTimeline extends StatelessWidget {
                                 Opacity(opacity: opacity, child: child),
                             child: Text(
                               steps[i].message,
-                              style: textTheme.bodySmall
-                                  ?.copyWith(color: colors.onSurfaceVariant),
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
                             ),
                           ),
                       ],
